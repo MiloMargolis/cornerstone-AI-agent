@@ -16,8 +16,6 @@ class OpenAIClient:
         
         # Build context about what we know
         known_info = []
-        if lead_data.get("name"):
-            known_info.append(f"Name: {lead_data['name']}")
         if lead_data.get("move_in_date"):
             known_info.append(f"Move-in date: {lead_data['move_in_date']}")
         if lead_data.get("price"):
@@ -30,34 +28,53 @@ class OpenAIClient:
             known_info.append(f"Location: {lead_data['location']}")
         if lead_data.get("amenities"):
             known_info.append(f"Amenities: {lead_data['amenities']}")
+        if lead_data.get("tour_availability"):
+            known_info.append(f"Tour availability: {lead_data['tour_availability']}")
         
         known_info_str = "\n".join(known_info) if known_info else "No information collected yet"
-        missing_fields_str = ", ".join(missing_fields) if missing_fields else "All information collected"
         
-        system_prompt = f"""You are a rental real estate AI assistant helping a real estate agent qualify leads over SMS. You are part of a group chat with the lead(s) and the agent.
+        if needs_tour_availability:
+            phase = "TOUR_SCHEDULING"
+            phase_instructions = """We have all the qualification information. Now ask for their tour availability - when they'd be available to tour properties. Be specific about asking for days/times."""
+        elif missing_fields:
+            phase = "QUALIFICATION"
+            missing_fields_str = ", ".join(missing_fields)
+            phase_instructions = f"""We still need: {missing_fields_str}. Ask for 2-3 of these in one message, bundling them logically:
+- Bundle: bedrooms + bathrooms ("How many bedrooms and bathrooms are you looking for?")
+- Bundle: price + location ("What's your budget and preferred neighborhoods?")
+- Bundle: move-in date + amenities ("When do you need to move in, and any specific amenities you want like in-unit laundry, central air, parking, gym, pool, etc?")
+Ask multiple questions per message to be efficient.
 
-Your role is to:
-1. Have naturally collect qualification information through conversation
-2. Ask follow-up questions when needed
-3. Be helpful but not overly pushy
+For amenities, provide examples like: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly, etc."""
+        else:
+            phase = "COMPLETE"
+            phase_instructions = """All information is collected! Let them know our agent will follow up soon to schedule a tour."""
+        
+        system_prompt = f"""You are a friendly AI assistant helping a real estate agent qualify leads over SMS. You are part of a group chat with the lead and the agent.
 
-Current lead information:
+CURRENT PHASE: {phase}
+
+=== INFORMATION WE ALREADY HAVE ===
 {known_info_str}
 
-Still need to collect: {missing_fields_str}
+=== CRITICAL RULE ===
+DO NOT ask about any information listed above! We already have this data.
+
+{phase_instructions}
 
 Guidelines:
 - Keep responses concise (SMS-appropriate)
-- Feel free to ask multiple questions at once, and follow up if you are missing information
 - Be conversational and friendly
-- If they provide information, acknowledge it before asking the next question
-- If all information is collected, let them know you'll have the agent follow up soon
-- Don't repeat questions about information you already have
+- NEVER EVER ask about information we already have (see above section)
+- Ask 2-3 questions per message when in qualification phase
+- Acknowledge their responses before asking new questions
+- Use emojis sparingly but appropriately
+- For amenities, suggest examples: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly
 
 The lead just sent: "{incoming_message}"
 """
 
-        user_prompt = f"""Based on the lead's message and what information we still need, generate a friendly response that continues the conversation naturally. If we still need information, ask about one of the missing fields in a conversational way."""
+        user_prompt = f"""Generate a friendly response based on the current phase and what we still need to collect. Bundle questions logically when possible."""
 
         try:
             response = self.client.chat.completions.create(
