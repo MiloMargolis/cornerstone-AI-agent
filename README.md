@@ -26,15 +26,18 @@ When a new lead comes in, the agent creates a group text that includes:
 - The AI assistant (using the Telnyx number)
 
 The assistant introduces itself and begins asking questions to qualify the lead. These include:
+- Name (if not already mentioned)
 - Move-in date
 - Price range
-- Number of bedrooms/bathrooms
-- Preferred locations
+- Number of bedrooms
+- Number of bathrooms
+- Preferred location(s)
 - Desired amenities
+- Optional section for other notes from the conversation
 
 The assistant continues the conversation until the lead is qualified or stops responding. It follows up automatically at set intervals and notifies the agent when it's time to take action (e.g., book a tour). All relevant lead data is written to Supabase and synced to Google Sheets in real time.
 
 The backend is entirely serverless and runs on AWS Lambda, triggered by Telnyx webhooks. Responses are generated using OpenAI and stored with Supabase. Google Sheets is used as a lightweight CRM for visibility and logging.
 
-This project is designed to replace the most repetitive and time-consuming part of the leasing workflow — chasing and qualifying leads — while keeping the agent in control and in the loop.
+This project is designed to replace the most repetitive and time-consuming part of the leasing workflow: chasing and qualifying leads.
 
