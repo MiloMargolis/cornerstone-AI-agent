@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CornerStone AI SMS Follow-Up Assistant
+
+Parameters:
+  TelnyxApiKey:
+    Type: String
+    Description: Telnyx API Key
+    NoEcho: true
+  
+  TelnyxPhoneNumber:
+    Type: String
+    Description: Telnyx Phone Number
+  
+  OpenAIApiKey:
+    Type: String
+    Description: OpenAI API Key
+    NoEcho: true
+  
+  SupabaseUrl:
+    Type: String
+    Description: Supabase Project URL
+  
+  SupabaseKey:
+    Type: String
+    Description: Supabase Service Role Secret Key
+    NoEcho: true
+  
+  AgentPhoneNumber:
+    Type: String
+    Description: Agent Phone Number
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.11
+
+Resources:
+  SMSHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          TELNYX_API_KEY: !Ref TelnyxApiKey
+          TELNYX_PHONE_NUMBER: !Ref TelnyxPhoneNumber
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_KEY: !Ref SupabaseKey
+          AGENT_PHONE_NUMBER: !Ref AgentPhoneNumber
+          OPENAI_MODEL: gpt-4o-mini
+      Events:
+        TelnyxWebhook:
+          Type: Api
+          Properties:
+            Path: /webhook
+            Method: post
+
+Outputs:
+  WebhookUrl:
+    Description: "API Gateway endpoint URL for Telnyx webhook"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook"
+  
+  SMSHandlerFunction:
+    Description: "SMS Handler Lambda Function ARN"
+    Value: !GetAtt SMSHandlerFunction.Arn 
