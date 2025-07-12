@@ -11,7 +11,7 @@ class OpenAIClient:
         self.client = openai.OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
-    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str]) -> str:
+    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False) -> str:
         """Generate a conversational response based on lead data and missing fields"""
         
         # Build context about what we know
@@ -82,33 +82,38 @@ The lead just sent: "{incoming_message}"
         system_prompt = f"""You are helping extract real estate lead qualification information from SMS messages.
 
 Current lead data:
-Name: {current_data.get('name', '')}
 Move-in date: {current_data.get('move_in_date', '')}
 Price range: {current_data.get('price', '')}
 Bedrooms: {current_data.get('beds', '')}
 Bathrooms: {current_data.get('baths', '')}
 Location: {current_data.get('location', '')}
 Amenities: {current_data.get('amenities', '')}
+Tour availability: {current_data.get('tour_availability', '')}
 
 Extract any new information from this message: "{message}"
 
 Return a JSON object with only the fields that have new information. Use these exact field names:
-- name
 - move_in_date  
 - price
 - beds
 - baths
 - location
 - amenities
+- tour_availability
+
+For tour_availability, look for availability mentions like "available weekends", "free Tuesday evenings", "anytime next week", etc.
 
 If no new information is found, return an empty JSON object: {{}}.
 
 Examples:
-Message: "Hi, I'm John and I'm looking for a 2 bedroom place"
-Response: {{"name": "John", "beds": "2"}}
+Message: "I'm looking for a 2 bedroom, 2 bath place"
+Response: {{"beds": "2", "baths": "2"}}
 
-Message: "I need something under $2000 in downtown"
-Response: {{"price": "under $2000", "location": "downtown"}}
+Message: "Budget is $2500 max, prefer downtown or midtown"
+Response: {{"price": "$2500 max", "location": "downtown or midtown"}}
+
+Message: "I'm free for tours on weekends"
+Response: {{"tour_availability": "weekends"}}
 """
 
         try:

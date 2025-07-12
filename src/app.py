@@ -100,11 +100,12 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
         
-        # Determine what fields are still missing
+        # Determine what fields are still missing and conversation phase
         missing_fields = supabase_client.get_missing_fields(lead)
+        needs_tour_availability = supabase_client.needs_tour_availability(lead)
         
-        # Generate AI response
-        ai_response = openai_client.generate_response(lead, message, missing_fields)
+        # Generate AI response based on phase
+        ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
         
         # Send response back to the group
         # For now, we'll send to the lead's number
