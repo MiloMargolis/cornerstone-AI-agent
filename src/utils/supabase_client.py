@@ -40,6 +40,7 @@ class SupabaseClient:
                 "location": "",
                 "amenities": "",
                 "tour_availability": "",
+                "tour_ready": False,
                 "chat_history": initial_chat
             }
             response = self.client.table("leads").insert(lead_data).execute()
@@ -82,7 +83,21 @@ class SupabaseClient:
     def needs_tour_availability(self, lead: Dict) -> bool:
         """Check if tour availability is needed"""
         return (self.is_qualification_complete(lead) and 
-                (not lead.get("tour_availability") or lead.get("tour_availability").strip() == ""))
+                (not lead.get("tour_availability") or lead.get("tour_availability").strip() == "") and
+                not lead.get("tour_ready", False))
+    
+    def set_tour_ready(self, phone: str) -> bool:
+        """Mark lead as tour ready"""
+        try:
+            updates = {
+                "tour_ready": True,
+                "last_contacted": "now()"
+            }
+            result = self.update_lead(phone, updates)
+            return result is not None
+        except Exception as e:
+            print(f"Error setting tour ready: {e}")
+            return False
     
     def add_message_to_history(self, phone: str, message: str, sender: str = "lead"):
         """Add a message to the lead's conversation history"""

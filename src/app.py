@@ -90,6 +90,10 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Extract any new information from the message
         extracted_info = openai_client.extract_lead_info(message, lead)
         
+        # Check if tour availability was just provided for the first time
+        tour_just_provided = (extracted_info.get("tour_availability") and 
+                             (not lead.get("tour_availability") or lead.get("tour_availability").strip() == ""))
+        
         # Update lead with extracted information
         if extracted_info:
             print(f"Extracted info: {extracted_info}")
@@ -100,12 +104,18 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
         
-        # Determine what fields are still missing and conversation phase
-        missing_fields = supabase_client.get_missing_fields(lead)
-        needs_tour_availability = supabase_client.needs_tour_availability(lead)
-        
-        # Generate AI response based on phase
-        ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
+        # Check if tour availability was just provided - trigger manager response
+        if tour_just_provided:
+            # Set tour_ready to true
+            supabase_client.set_tour_ready(lead_phone)
+            ai_response = "Perfect! I have all the information I need. I'll get my manager to set up an exact time with you for the tour. They'll be in touch soon! 🏠"
+        else:
+            # Determine what fields are still missing and conversation phase
+            missing_fields = supabase_client.get_missing_fields(lead)
+            needs_tour_availability = supabase_client.needs_tour_availability(lead)
+            
+            # Generate AI response based on phase
+            ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
         
         # Send response back to the group
         # For now, we'll send to the lead's number
