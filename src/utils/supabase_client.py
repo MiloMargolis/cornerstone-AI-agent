@@ -27,7 +27,6 @@ class SupabaseClient:
         try:
             lead_data = {
                 "phone": phone,
-                "text": initial_message,
                 "name": "",
                 "email": "",
                 "beds": "",
@@ -36,7 +35,7 @@ class SupabaseClient:
                 "price": "",
                 "location": "",
                 "amenities": "",
-                "other_notes": ""
+                "other_notes": initial_message
             }
             response = self.client.table("leads").insert(lead_data).execute()
             if response.data:
@@ -76,10 +75,10 @@ class SupabaseClient:
         try:
             lead = self.get_lead_by_phone(phone)
             if lead:
-                # For now, just update the text field with the latest message
+                # For now, just update the other_notes field with the latest message
                 # In the future, we might want a separate messages table
                 updates = {
-                    "text": message,
+                    "other_notes": message,
                     "last_contacted": "now()"
                 }
                 self.update_lead(phone, updates)
