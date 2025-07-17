@@ -7,9 +7,16 @@ class SupabaseClient:
     def __init__(self):
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
+        
         if not url or not key:
             raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
         self.client: Client = create_client(url, key)
+        try:
+            assert self.client is not None, "Supabase client creation failed"
+            # Try a simple query to check connection (e.g., list tables or select from a known table)
+            self.client.table("leads").select("*").limit(1).execute()
+        except Exception as e:
+            raise RuntimeError(f"Supabase client creation or test query failed: {e}")
     
     def get_lead_by_phone(self, phone: str) -> Optional[Dict]:
         """Get lead record by phone number"""
@@ -19,7 +26,7 @@ class SupabaseClient:
                 return response.data[0]
             return None
         except Exception as e:
-            print(f"Error getting lead by phone: {e}")
+            print(f"Error getting lead by phone: {e}") ## TODO: Should this really be an error? It seems like we are just checking if lead is present or not, not an error to create new lead.
             return None
     
     def create_lead(self, phone: str, initial_message: str = "") -> Optional[Dict]:

@@ -1,5 +1,6 @@
 import json
 import os
+from dotenv import load_dotenv
 from typing import Dict, Any
 
 # Import our utility classes
@@ -163,5 +164,7 @@ if __name__ == "__main__":
     }
     
     print("Testing locally...")
+    print("Loading local .env")
+    load_dotenv()
     result = lambda_handler(test_event, None)
     print(f"Result: {result}") 
