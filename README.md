@@ -1,4 +1,4 @@
-# ConerStone AI SMS Follow-Up Assistant
+# CornerStone AI SMS Follow-Up Assistant
 
 This is a serverless, AI-powered SMS assistant for real estate agents. It helps you automatically qualify and follow up with leads over SMS until they're ready to schedule a tour.
 
