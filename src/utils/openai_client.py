@@ -33,6 +33,17 @@ class OpenAIClient:
         
         known_info_str = "\n".join(known_info) if known_info else "No information collected yet"
         
+        # Include chat history for better conversational context
+        chat_history = lead_data.get("chat_history", "")
+        if chat_history:
+            # Limit to last 10 messages to avoid token limits
+            chat_lines = chat_history.strip().split('\n')
+            if len(chat_lines) > 10:
+                chat_lines = chat_lines[-10:]
+            chat_history_str = "\n".join(chat_lines)
+        else:
+            chat_history_str = "No conversation history yet"
+        
         if needs_tour_availability:
             phase = "TOUR_SCHEDULING"
             phase_instructions = """We have all the qualification information. Now ask for their tour availability - when they'd be available to tour properties. Be specific about asking for days/times."""
@@ -53,6 +64,9 @@ For amenities, provide examples like: in-unit laundry, central air, parking, gym
         system_prompt = f"""You are a friendly AI assistant helping a real estate agent qualify leads over SMS. You are part of a group chat with the lead and the agent.
 
 CURRENT PHASE: {phase}
+
+=== CONVERSATION HISTORY ===
+{chat_history_str}
 
 === INFORMATION WE ALREADY HAVE ===
 {known_info_str}
