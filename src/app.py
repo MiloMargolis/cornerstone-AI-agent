@@ -6,10 +6,13 @@ from typing import Dict, Any
 # Import our utility classes
 from utils.supabase_client import SupabaseClient
 from utils.openai_client import OpenAIClient
+
 if os.getenv("MOCK_TELNX", "0") == "0":
     from utils.telnyx_client import TelnyxClient
 else:
     from utils.telnyx_client import MockTelnyxClient as TelnyxClient
+from utils.delay_detector import DelayDetector
+from config.follow_up_config import FOLLOW_UP_SCHEDULE
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -80,6 +83,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         supabase_client = SupabaseClient()
         openai_client = OpenAIClient()
         telnyx_client = TelnyxClient()
+        delay_detector = DelayDetector()
         
         # Get or create lead record
         lead = supabase_client.get_lead_by_phone(lead_phone)
@@ -108,8 +112,30 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
         
+        # Check for delay requests
+        delay_info = delay_detector.detect_delay_request(message)
+        if delay_info:
+            # Pause follow-ups until the requested time
+            delay_until = delay_detector.calculate_delay_until(delay_info)
+            supabase_client.pause_follow_up_until(lead_phone, delay_until)
+            
+            # Generate appropriate delay response
+            delay_days = delay_info["delay_days"]
+            if delay_days == 1:
+                time_phrase = "tomorrow"
+            elif delay_days <= 7:
+                time_phrase = f"in {delay_days} days"
+            elif delay_days <= 30:
+                weeks = delay_days // 7
+                time_phrase = f"in {weeks} week{'s' if weeks > 1 else ''}"
+            else:
+                months = delay_days // 30
+                time_phrase = f"in {months} month{'s' if months > 1 else ''}"
+            
+            ai_response = f"No problem! I'll reach out {time_phrase}. Feel free to message me anytime if you have questions before then! 😊"
+        
         # Check if tour availability was just provided - trigger manager response
-        if tour_just_provided:
+        elif tour_just_provided:
             # Set tour_ready to true
             supabase_client.set_tour_ready(lead_phone)
             ai_response = "Perfect! I have all the information I need. I'll get my manager to set up an exact time with you for the tour. They'll be in touch soon! 🏠"
@@ -120,6 +146,13 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             
             # Generate AI response based on phase
             ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
+            
+            # Schedule first follow-up if this is a new incomplete lead
+            if not lead.get("next_follow_up_time") and not lead.get("follow_up_paused_until") and missing_fields:
+                # Schedule first follow-up
+                first_follow_up = FOLLOW_UP_SCHEDULE[0]
+                supabase_client.schedule_follow_up(lead_phone, first_follow_up["days"], first_follow_up["stage"])
+                print(f"Scheduled first follow-up for {lead_phone} in {first_follow_up['days']} days")
         
         # Send response back to the group
         # For now, we'll send to the lead's number

@@ -59,6 +59,29 @@ Resources:
             Path: /webhook
             Method: post
 
+  FollowUpHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: follow_up_handler.lambda_handler
+      Runtime: python3.11
+      Timeout: 300
+      Environment:
+        Variables:
+          TELNYX_API_KEY: !Ref TelnyxApiKey
+          TELNYX_PHONE_NUMBER: !Ref TelnyxPhoneNumber
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_KEY: !Ref SupabaseKey
+          AGENT_PHONE_NUMBER: !Ref AgentPhoneNumber
+          OPENAI_MODEL: gpt-4o-mini
+      Events:
+        FollowUpSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(30 minutes)
+            Description: "Run follow-up handler every 30 minutes"
+
 Outputs:
   WebhookUrl:
     Description: "API Gateway endpoint URL for Telnyx webhook"
@@ -66,4 +89,8 @@ Outputs:
   
   SMSHandlerFunction:
     Description: "SMS Handler Lambda Function ARN"
-    Value: !GetAtt SMSHandlerFunction.Arn 
+    Value: !GetAtt SMSHandlerFunction.Arn
+
+  FollowUpHandlerFunction:
+    Description: "Follow-up Handler Lambda Function ARN"
+    Value: !GetAtt FollowUpHandlerFunction.Arn 

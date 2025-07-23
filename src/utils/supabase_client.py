@@ -2,6 +2,7 @@ import os
 from supabase import create_client, Client
 from typing import Dict, Optional, List
 import json
+from datetime import datetime, timedelta
 
 class SupabaseClient:
     def __init__(self):
@@ -48,7 +49,11 @@ class SupabaseClient:
                 "amenities": "",
                 "tour_availability": "",
                 "tour_ready": False,
-                "chat_history": initial_chat
+                "chat_history": initial_chat,
+                "follow_up_count": 0,
+                "next_follow_up_time": None,
+                "follow_up_paused_until": None,
+                "follow_up_stage": "scheduled"
             }
             response = self.client.table("leads").insert(lead_data).execute()
             if response.data:
@@ -125,4 +130,97 @@ class SupabaseClient:
                 }
                 self.update_lead(phone, updates)
         except Exception as e:
-            print(f"Error adding message to history: {e}") 
+            print(f"Error adding message to history: {e}")
+    
+    def schedule_follow_up(self, phone: str, days: int, stage: str) -> bool:
+        """Schedule next follow-up for a lead"""
+        try:
+            from datetime import datetime, timedelta
+            next_follow_up = datetime.now() + timedelta(days=days)
+            
+            updates = {
+                "next_follow_up_time": next_follow_up.isoformat(),
+                "follow_up_stage": stage
+            }
+            
+            result = self.update_lead(phone, updates)
+            return result is not None
+        except Exception as e:
+            print(f"Error scheduling follow-up: {e}")
+            return False
+    
+    def pause_follow_up_until(self, phone: str, until_date: datetime) -> bool:
+        """Pause follow-ups until a specific date"""
+        try:
+            updates = {
+                "follow_up_paused_until": until_date.isoformat(),
+                "next_follow_up_time": None  # Clear any scheduled follow-up
+            }
+            
+            result = self.update_lead(phone, updates)
+            return result is not None
+        except Exception as e:
+            print(f"Error pausing follow-up: {e}")
+            return False
+    
+    def get_leads_needing_follow_up(self) -> List[Dict]:
+        """Get leads that need follow-up messages"""
+        try:
+            current_time = datetime.now()
+            
+            # Query for leads that:
+            # - Are not tour_ready
+            # - Have qualification missing
+            # - Have next_follow_up_time <= now
+            # - Are not paused or pause period has expired
+            # - Haven't exceeded max follow-ups
+            
+            response = self.client.table("leads").select("*").execute()
+            
+            leads_to_follow_up = []
+            for lead in response.data:
+                # Skip if tour ready
+                if lead.get("tour_ready", False):
+                    continue
+                
+                # Skip if all qualification fields are complete
+                if len(self.get_missing_fields(lead)) == 0:
+                    continue
+                
+                # Skip if max follow-ups exceeded
+                if lead.get("follow_up_count", 0) >= 5:  # MAX_FOLLOW_UPS
+                    continue
+                
+                # Skip if paused and pause period hasn't expired
+                if lead.get("follow_up_paused_until"):
+                    pause_until = datetime.fromisoformat(lead["follow_up_paused_until"].replace("Z", "+00:00"))
+                    if current_time < pause_until:
+                        continue
+                
+                # Include if next_follow_up_time is due
+                if lead.get("next_follow_up_time"):
+                    follow_up_time = datetime.fromisoformat(lead["next_follow_up_time"].replace("Z", "+00:00"))
+                    if current_time >= follow_up_time:
+                        leads_to_follow_up.append(lead)
+            
+            return leads_to_follow_up
+        except Exception as e:
+            print(f"Error getting leads for follow-up: {e}")
+            return []
+    
+    def increment_follow_up_count(self, phone: str) -> bool:
+        """Increment follow-up count for a lead"""
+        try:
+            lead = self.get_lead_by_phone(phone)
+            if lead:
+                new_count = lead.get("follow_up_count", 0) + 1
+                updates = {
+                    "follow_up_count": new_count,
+                    "next_follow_up_time": None  # Clear this follow-up
+                }
+                result = self.update_lead(phone, updates)
+                return result is not None
+            return False
+        except Exception as e:
+            print(f"Error incrementing follow-up count: {e}")
+            return False 
