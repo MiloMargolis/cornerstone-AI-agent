@@ -6,7 +6,10 @@ from typing import Dict, Any
 # Import our utility classes
 from utils.supabase_client import SupabaseClient
 from utils.openai_client import OpenAIClient
-from utils.telnyx_client import TelnyxClient
+if os.getenv("MOCK_TELNX", "0") == "0":
+    from utils.telnyx_client import TelnyxClient
+else:
+    from utils.telnyx_client import MockTelnyxClient as TelnyxClient
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
