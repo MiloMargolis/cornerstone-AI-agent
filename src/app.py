@@ -1,11 +1,16 @@
 import json
 import os
+from dotenv import load_dotenv
 from typing import Dict, Any
 
 # Import our utility classes
 from utils.supabase_client import SupabaseClient
 from utils.openai_client import OpenAIClient
-from utils.telnyx_client import TelnyxClient
+
+if os.getenv("MOCK_TELNX", "0") == "0":
+    from utils.telnyx_client import TelnyxClient
+else:
+    from utils.telnyx_client import MockTelnyxClient as TelnyxClient
 from utils.delay_detector import DelayDetector
 from config.follow_up_config import FOLLOW_UP_SCHEDULE
 
@@ -195,5 +200,7 @@ if __name__ == "__main__":
     }
     
     print("Testing locally...")
+    print("Loading local .env")
+    load_dotenv()
     result = lambda_handler(test_event, None)
     print(f"Result: {result}") 

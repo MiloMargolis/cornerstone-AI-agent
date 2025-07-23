@@ -45,3 +45,19 @@ class TelnyxClient:
         except Exception as e:
             print(f"Error sending group SMS: {e}")
             return False 
+        
+
+class MockTelnyxClient:
+    def __init__(self):
+        self.from_number = os.getenv("TELNYX_API_KEY")
+        if not self.from_number:
+            raise ValueError("Missing TELNYX_PHONE_NUMBER environment variable")
+    
+    def send_sms(self, to_number: str, message: str) -> bool:
+        print(f"[MOCK] SMS to {to_number} from {self.from_number}: {message}")
+        return True
+    
+    def send_group_sms(self, group_numbers: list, message: str) -> bool:
+        for number in group_numbers:
+            self.send_sms(number, message)
+        return True
