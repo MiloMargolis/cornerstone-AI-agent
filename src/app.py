@@ -40,7 +40,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Extract message details
         payload = webhook_data.get('payload', {})
         from_number = payload.get('from', {}).get('phone_number')
-        to_number = payload.get('to', {}).get('phone_number')
+        # Fix: 'to' is a list, get the first element
+        to_list = payload.get('to', [])
+        to_number = to_list[0].get('phone_number') if to_list else None
         message_text = payload.get('text')
         
         if not from_number or not message_text:
@@ -190,9 +192,11 @@ if __name__ == "__main__":
                     'from': {
                         'phone_number': '+1234567890'
                     },
-                    'to': {
-                        'phone_number': '+1987654321'
-                    },
+                    'to': [
+                        {
+                            'phone_number': '+1987654321'
+                        }
+                    ],
                     'text': 'Hi, I\'m looking for a 2 bedroom apartment'
                 }
             }
