@@ -52,16 +52,29 @@ class OpenAIClient:
             missing_fields_str = ", ".join(missing_fields)
             phase_instructions = f"""We still need: {missing_fields_str}. 
 
-CRITICAL: Before asking ANY questions, carefully analyze the conversation history above to see what questions you've ALREADY ASKED about these missing fields. DO NOT repeat questions you've already asked, even if the lead hasn't answered them yet.
+🚨 CRITICAL ANTI-REPETITION CHECK 🚨
+Before asking ANYTHING, you MUST carefully read the entire conversation history above. If you see that you have ALREADY asked about any of these missing fields in previous messages, DO NOT ask about them again - even if the lead didn't answer or gave an unclear answer.
 
-Only ask about missing fields that you haven't already inquired about in the conversation history. If you've already asked about a missing field, acknowledge their previous response or gently follow up, don't re-ask the same question.
+ANALYSIS REQUIRED: For each missing field ({missing_fields_str}), check the conversation history:
+1. Have I already asked about bedrooms/bathrooms? If YES, don't ask again.
+2. Have I already asked about price/budget? If YES, don't ask again. 
+3. Have I already asked about location/neighborhoods? If YES, don't ask again.
+4. Have I already asked about move-in date? If YES, don't ask again.
+5. Have I already asked about amenities? If YES, don't ask again.
 
-Bundle 2-3 NEW questions logically:
+ONLY ask about missing fields that you have NOT already inquired about in the conversation history.
+
+If you've already asked about a missing field:
+- Acknowledge what they said (if anything)
+- Move on to other questions 
+- DO NOT repeat the same question
+
+Bundle 2-3 NEW (never asked before) questions logically:
 - Bundle: bedrooms + bathrooms ("How many bedrooms and bathrooms are you looking for?")
 - Bundle: price + location ("What's your budget and preferred neighborhoods?")  
 - Bundle: move-in date + amenities ("When do you need to move in, and any specific amenities you want?")
 
-For amenities, provide examples: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly."""
+For amenities, suggest examples: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly."""
         else:
             phase = "COMPLETE"
             phase_instructions = """All information is collected! Send a professional completion message letting them know our manager will contact them directly to schedule their tour. This ends the qualification conversation."""
@@ -118,41 +131,50 @@ The lead just sent: "{incoming_message}"
     def extract_lead_info(self, message: str, current_data: Dict) -> Dict:
         """Extract any qualification information from the message"""
         
-        system_prompt = f"""You are helping extract real estate lead qualification information from SMS messages.
+        system_prompt = f"""You are an expert at extracting real estate information from SMS messages. You must be very thorough and catch ALL information provided.
 
-Current lead data:
-Move-in date: {current_data.get('move_in_date', '')}
-Price range: {current_data.get('price', '')}
-Bedrooms: {current_data.get('beds', '')}
-Bathrooms: {current_data.get('baths', '')}
-Location: {current_data.get('location', '')}
-Amenities: {current_data.get('amenities', '')}
-Tour availability: {current_data.get('tour_availability', '')}
+CURRENT LEAD DATA (do NOT extract if already filled):
+Move-in date: {current_data.get('move_in_date', 'EMPTY')}
+Price range: {current_data.get('price', 'EMPTY')}
+Bedrooms: {current_data.get('beds', 'EMPTY')}
+Bathrooms: {current_data.get('baths', 'EMPTY')}
+Location: {current_data.get('location', 'EMPTY')}
+Amenities: {current_data.get('amenities', 'EMPTY')}
+Tour availability: {current_data.get('tour_availability', 'EMPTY')}
 
-Extract any new information from this message: "{message}"
+EXTRACT ALL NEW INFORMATION from this message: "{message}"
 
-Return a JSON object with only the fields that have new information. Use these exact field names:
+Look for these patterns:
+- Move-in date: "september 1st", "Sept 1", "9/1", "next month", "ASAP", etc.
+- Price: "$1500", "1500/mo", "$2000 max", "under 2k", "budget is", etc.  
+- Bedrooms: "5 bed", "5 bedroom", "5br", "five bedroom", etc.
+- Bathrooms: "2 bath", "2 bathroom", "2ba", "two bath", etc.
+- Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
+- Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
+- Tour availability: "weekends", "available", "free", specific days/times, etc.
+
+CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
+
+Return ONLY a JSON object with the NEW information found. Use these exact field names:
 - move_in_date  
 - price
-- beds
+- beds  
 - baths
 - location
 - amenities
 - tour_availability
 
-For tour_availability, look for availability mentions like "available weekends", "free Tuesday evenings", "anytime next week", etc.
+EXAMPLES:
+Message: "I need a place for september 1st, 2025, looking for a 5 bed, 2 bath, 1500/mo, on mission hill please"
+Response: {{"move_in_date": "september 1st, 2025", "beds": "5", "baths": "2", "price": "1500/mo", "location": "mission hill"}}
 
-If no new information is found, return an empty JSON object: {{}}.
+Message: "none" (when asked about amenities)
+Response: {{"amenities": "none"}}
 
-Examples:
-Message: "I'm looking for a 2 bedroom, 2 bath place"
-Response: {{"beds": "2", "baths": "2"}}
+Message: "I'm looking for something under $2000 in downtown"  
+Response: {{"price": "under $2000", "location": "downtown"}}
 
-Message: "Budget is $2500 max, prefer downtown or midtown"
-Response: {{"price": "$2500 max", "location": "downtown or midtown"}}
-
-Message: "I'm free for tours on weekends"
-Response: {{"tour_availability": "weekends"}}
+If NO new information found, return: {{}}
 """
 
         try:
@@ -160,16 +182,20 @@ Response: {{"tour_availability": "weekends"}}
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Extract information from: {message}"}
+                    {"role": "user", "content": f"Extract ALL information from: {message}"}
                 ],
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.1
             )
             
             import json
-            extracted_info = json.loads(response.choices[0].message.content.strip())
+            result_text = response.choices[0].message.content.strip()
+            print(f"[DEBUG] Extract attempt for message '{message}': {result_text}")
+            
+            extracted_info = json.loads(result_text)
+            print(f"[DEBUG] Successfully extracted: {extracted_info}")
             return extracted_info
         
         except Exception as e:
-            print(f"Error extracting lead info: {e}")
+            print(f"[ERROR] Failed to extract lead info from '{message}': {e}")
             return {} 

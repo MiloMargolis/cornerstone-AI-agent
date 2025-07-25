@@ -106,10 +106,17 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         
         # Update lead with extracted information
         if extracted_info:
-            print(f"Extracted info: {extracted_info}")
+            print(f"[DEBUG] Extracted info: {extracted_info}")
             updated_lead = supabase_client.update_lead(lead_phone, extracted_info)
             if updated_lead:
                 lead = updated_lead
+                print(f"[DEBUG] Lead updated successfully. Current lead data:")
+                for field in ["move_in_date", "price", "beds", "baths", "location", "amenities", "tour_availability"]:
+                    print(f"  {field}: '{lead.get(field, 'EMPTY')}'")
+            else:
+                print(f"[ERROR] Failed to update lead with extracted info: {extracted_info}")
+        else:
+            print(f"[DEBUG] No information extracted from message: '{message}'")
         
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
@@ -138,20 +145,45 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         
         # Check if conversation is already complete (tour_ready = True)
         elif lead.get("tour_ready", False):
-            # Conversation is complete, send brief acknowledgment and don't continue qualification
-            ai_response = "Thanks for your message. Our manager has your information and will be in touch soon to schedule your tour."
-            print(f"Lead {lead_phone} is tour_ready - sending completion acknowledgment only")
+            # Conversation is complete - stay completely silent
+            print(f"Lead {lead_phone} is tour_ready - staying silent (no response sent)")
+            return "SILENT_TOUR_READY"  # Return early, no SMS sent
         
         # Check if tour availability was just provided - trigger manager response
         elif tour_just_provided:
             # Set tour_ready to true
             supabase_client.set_tour_ready(lead_phone)
+            
+            # Send notification to agent
+            agent_phone = os.getenv("AGENT_PHONE_NUMBER")
+            if agent_phone:
+                lead_name = lead.get("name", "").strip()
+                name_part = lead_name if lead_name else "Lead"
+                agent_message = f"{name_part} with phone number {lead_phone} is ready for a tour"
+                
+                agent_sms_success = telnyx_client.send_sms(agent_phone, agent_message)
+                if agent_sms_success:
+                    print(f"Agent notification sent to {agent_phone}: {agent_message}")
+                else:
+                    print(f"Failed to send agent notification to {agent_phone}")
+            else:
+                print("No AGENT_PHONE_NUMBER configured - skipping agent notification")
+            
             ai_response = "Perfect! I have all the information I need. I'll get my manager to set up an exact time with you for the tour. They'll be in touch soon."
             print(f"Lead {lead_phone} completed qualification - marked as tour_ready")
         else:
             # Determine what fields are still missing and conversation phase
             missing_fields = supabase_client.get_missing_fields(lead)
             needs_tour_availability = supabase_client.needs_tour_availability(lead)
+            
+            print(f"[DEBUG] Missing fields analysis:")
+            print(f"  missing_fields: {missing_fields}")
+            print(f"  needs_tour_availability: {needs_tour_availability}")
+            print(f"  Current lead data for missing fields check:")
+            for field in ["move_in_date", "price", "beds", "baths", "location", "amenities"]:
+                value = lead.get(field, 'EMPTY')
+                is_empty = not value or value.strip() == ""
+                print(f"    {field}: '{value}' (empty: {is_empty})")
             
             # Generate AI response based on phase
             ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
