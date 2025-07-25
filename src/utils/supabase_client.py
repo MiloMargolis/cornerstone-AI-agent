@@ -53,7 +53,10 @@ class SupabaseClient:
                 "follow_up_count": 0,
                 "next_follow_up_time": None,
                 "follow_up_paused_until": None,
-                "follow_up_stage": "scheduled"
+                "follow_up_stage": "scheduled",
+                # New optional fields
+                "rental_urgency": "",
+                "boston_rental_experience": ""
             }
             response = self.client.table("leads").insert(lead_data).execute()
             if response.data:
@@ -78,13 +81,14 @@ class SupabaseClient:
             return None
     
     def get_missing_fields(self, lead: Dict) -> List[str]:
-        """Get list of qualification fields that are still empty for a lead"""
-        qualification_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
+        """Get list of REQUIRED qualification fields that are still empty for a lead"""
+        # Only required fields - these must be filled for tour_ready
+        required_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
         missing_fields = []
         
-        print(f"[DEBUG] Checking missing fields for lead {lead.get('phone', 'unknown')}:")
+        print(f"[DEBUG] Checking missing REQUIRED fields for lead {lead.get('phone', 'unknown')}:")
         
-        for field in qualification_fields:
+        for field in required_fields:
             value = lead.get(field)
             
             # More explicit checking: field is missing if it's None, empty string, or only whitespace
@@ -98,8 +102,31 @@ class SupabaseClient:
             if is_missing:
                 missing_fields.append(field)
         
-        print(f"[DEBUG] Final missing fields: {missing_fields}")
+        print(f"[DEBUG] Final missing REQUIRED fields: {missing_fields}")
         return missing_fields
+    
+    def get_missing_optional_fields(self, lead: Dict) -> List[str]:
+        """Get list of OPTIONAL fields that could be asked about but don't affect tour_ready"""
+        optional_fields = ["rental_urgency", "boston_rental_experience"]
+        missing_optional = []
+        
+        print(f"[DEBUG] Checking missing OPTIONAL fields for lead {lead.get('phone', 'unknown')}:")
+        
+        for field in optional_fields:
+            value = lead.get(field)
+            
+            is_missing = (
+                value is None or 
+                (isinstance(value, str) and value.strip() == "")
+            )
+            
+            print(f"  {field}: '{value}' -> Missing: {is_missing}")
+            
+            if is_missing:
+                missing_optional.append(field)
+        
+        print(f"[DEBUG] Final missing OPTIONAL fields: {missing_optional}")
+        return missing_optional
     
     def is_qualification_complete(self, lead: Dict) -> bool:
         """Check if all qualification fields are complete"""

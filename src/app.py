@@ -174,19 +174,21 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         else:
             # Determine what fields are still missing and conversation phase
             missing_fields = supabase_client.get_missing_fields(lead)
+            missing_optional = supabase_client.get_missing_optional_fields(lead)
             needs_tour_availability = supabase_client.needs_tour_availability(lead)
             
             print(f"[DEBUG] Missing fields analysis:")
-            print(f"  missing_fields: {missing_fields}")
+            print(f"  missing_required_fields: {missing_fields}")
+            print(f"  missing_optional_fields: {missing_optional}")
             print(f"  needs_tour_availability: {needs_tour_availability}")
             print(f"  Current lead data for missing fields check:")
-            for field in ["move_in_date", "price", "beds", "baths", "location", "amenities"]:
+            for field in ["move_in_date", "price", "beds", "baths", "location", "amenities", "rental_urgency", "boston_rental_experience"]:
                 value = lead.get(field, 'EMPTY')
                 is_empty = not value or value.strip() == ""
                 print(f"    {field}: '{value}' (empty: {is_empty})")
             
             # Generate AI response based on phase
-            ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability)
+            ai_response = openai_client.generate_response(lead, message, missing_fields, needs_tour_availability, missing_optional)
             
             # Schedule first follow-up if this is a new incomplete lead
             if not lead.get("next_follow_up_time") and not lead.get("follow_up_paused_until") and missing_fields:

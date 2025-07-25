@@ -11,37 +11,32 @@ class OpenAIClient:
         self.client = openai.OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
-    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False) -> str:
+    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False, missing_optional: List[str] = None) -> str:
         """Generate a conversational response based on lead data and missing fields"""
         
-        # Build context about what we know
-        known_info = []
-        if lead_data.get("move_in_date"):
-            known_info.append(f"Move-in date: {lead_data['move_in_date']}")
-        if lead_data.get("price"):
-            known_info.append(f"Price range: {lead_data['price']}")
-        if lead_data.get("beds"):
-            known_info.append(f"Bedrooms: {lead_data['beds']}")
-        if lead_data.get("baths"):
-            known_info.append(f"Bathrooms: {lead_data['baths']}")
-        if lead_data.get("location"):
-            known_info.append(f"Location: {lead_data['location']}")
-        if lead_data.get("amenities"):
-            known_info.append(f"Amenities: {lead_data['amenities']}")
-        if lead_data.get("tour_availability"):
-            known_info.append(f"Tour availability: {lead_data['tour_availability']}")
+        if missing_optional is None:
+            missing_optional = []
         
-        known_info_str = "\n".join(known_info) if known_info else "No information collected yet"
+        # Build simple list of what we have vs don't have for REQUIRED fields
+        database_status = []
+        required_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
         
-        # Create explicit list of fields that have ANY content (even partial)
-        fields_with_content = []
-        qualification_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
-        for field in qualification_fields:
+        for field in required_fields:
             value = lead_data.get(field)
-            if value and str(value).strip():  # Any non-empty content
-                fields_with_content.append(field)
+            has_content = value and str(value).strip()
+            status = "✓ HAS DATA" if has_content else "✗ MISSING"
+            database_status.append(f"{field}: {status} ({value if has_content else 'empty'})")
         
-        fields_with_content_str = ", ".join(fields_with_content) if fields_with_content else "none"
+        # Add optional fields status
+        optional_fields = ["rental_urgency", "boston_rental_experience"]
+        database_status.append("\nOPTIONAL FIELDS:")
+        for field in optional_fields:
+            value = lead_data.get(field)
+            has_content = value and str(value).strip()
+            status = "✓ HAS DATA" if has_content else "○ OPTIONAL"
+            database_status.append(f"{field}: {status} ({value if has_content else 'could ask about'})")
+        
+        database_status_str = "\n".join(database_status)
         
         # Include chat history for better conversational context
         chat_history = lead_data.get("chat_history", "")
@@ -56,37 +51,35 @@ class OpenAIClient:
         
         if needs_tour_availability:
             phase = "TOUR_SCHEDULING"
-            phase_instructions = """We have all the qualification information. Now ask for their tour availability - when they'd be available to tour properties. Be specific about asking for days/times."""
+            phase_instructions = """All qualification info is complete. Ask ONLY about tour availability - when they're available for property tours. Don't ask about anything else."""
         elif missing_fields:
             phase = "QUALIFICATION"
             missing_fields_str = ", ".join(missing_fields)
-            phase_instructions = f"""We still need: {missing_fields_str}. 
+            phase_instructions = f"""Still missing REQUIRED: {missing_fields_str}
 
-🚨 CRITICAL ANTI-REPETITION CHECK 🚨
-Before asking ANYTHING, you MUST carefully read the entire conversation history above. If you see that you have ALREADY asked about any of these missing fields in previous messages, DO NOT ask about them again - even if the lead didn't answer or gave an unclear answer.
+Before asking anything:
+1. Check the database status above - only ask about "✗ MISSING" fields
+2. Check conversation history - don't repeat questions
 
-🚨 DOUBLE-CHECK AGAINST FIELDS WITH CONTENT 🚨
-NEVER ask about any field listed in "FIELDS WITH ANY CONTENT" above. If a field has ANY data (even partial like "ac" for amenities), DO NOT ask about it.
+Ask 2-3 questions about missing required fields only:
+- Bedrooms + bathrooms together
+- Price + location together  
+- Move-in date + amenities together
 
-ANALYSIS REQUIRED: For each missing field ({missing_fields_str}), check:
-1. Is this field in the "FIELDS WITH ANY CONTENT" list? If YES, don't ask about it.
-2. Have I already asked about this field in the conversation history? If YES, don't ask again.
-3. Only ask about fields that are BOTH missing AND have no content AND haven't been asked about.
+For amenities, suggest: in-unit laundry, central air, parking, gym, dishwasher, balcony, pet-friendly."""
+        elif missing_optional and len(missing_optional) > 0:
+            phase = "OPTIONAL_QUESTIONS"
+            missing_optional_str = ", ".join(missing_optional)
+            phase_instructions = f"""All required info is complete! You can ask 1-2 optional questions to gather extra helpful info: {missing_optional_str}
 
-ONLY ask about missing fields that:
-- Have NO content in the database 
-- Have NOT been asked about in conversation history
-- Are truly empty/null
+Optional questions:
+- rental_urgency: "How quickly are you looking to move? Are you hoping to find something within the next few weeks, or do you have more flexibility with timing?"
+- boston_rental_experience: "Do you mind if I ask - have you rented an apartment in Boston before, or is this your first rental experience here? I can give you a brief overview of the process if helpful."
 
-Bundle 2-3 NEW (never asked before, no content) questions logically:
-- Bundle: bedrooms + bathrooms ("How many bedrooms and bathrooms are you looking for?")
-- Bundle: price + location ("What's your budget and preferred neighborhoods?")  
-- Bundle: move-in date + amenities ("When do you need to move in, and any specific amenities you want?")
-
-For amenities, suggest examples: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly."""
+Ask naturally, don't force it. If conversation doesn't flow naturally, skip to asking about tour availability."""
         else:
             phase = "COMPLETE"
-            phase_instructions = """All information is collected! Send a professional completion message letting them know our manager will contact them directly to schedule their tour. This ends the qualification conversation."""
+            phase_instructions = """All information is collected! Send a professional completion message letting them know your teammate will contact them directly to schedule their tour. This ends the qualification conversation."""
         
         system_prompt = f"""You are a professional assistant helping a busy real estate agent qualify leads over SMS. You are efficient, helpful, and direct. You are part of a group chat with the lead and the agent.
 
@@ -95,18 +88,13 @@ CURRENT PHASE: {phase}
 === CONVERSATION HISTORY ===
 {chat_history_str}
 
-=== INFORMATION WE ALREADY HAVE ===
-{known_info_str}
-
-=== FIELDS WITH ANY CONTENT (NEVER ASK ABOUT THESE) ===
-Fields that have ANY data (even partial): {fields_with_content_str}
+=== DATABASE STATUS ===
+{database_status_str}
 
 === CRITICAL RULES ===
-1. DO NOT ask about any information listed in "INFORMATION WE ALREADY HAVE" - we have this data stored.
-2. NEVER EVER ask about any fields listed in "FIELDS WITH ANY CONTENT" - even if the data seems incomplete, if we have ANY content for a field, don't ask about it again.
-3. DO NOT repeat questions you've already asked in the conversation history - even if the lead hasn't answered yet.
-4. Carefully analyze the conversation history to see what you've already asked about before formulating new questions.
-5. If you've already asked about a missing field, acknowledge their response or gently follow up - don't re-ask the same question.
+1. NEVER ask about fields marked "✓ HAS DATA" above - we already have this information.
+2. ONLY ask about what the current phase requires.
+3. Don't ask multiple questions when one will do.
 
 {phase_instructions}
 
@@ -117,7 +105,7 @@ Guidelines:
 - Ask 2-3 questions per message when in qualification phase
 - Acknowledge their responses briefly before asking new questions
 - No emojis - maintain professional tone
-- For amenities, suggest examples: in-unit laundry, central air, parking, gym, pool, dishwasher, balcony, pet-friendly
+- For amenities, suggest examples: in-unit laundry, central air, parking, gym, dishwasher, balcony, pet-friendly
 
 The lead just sent: "{incoming_message}"
 """
@@ -154,6 +142,8 @@ Bathrooms: {current_data.get('baths', 'EMPTY')}
 Location: {current_data.get('location', 'EMPTY')}
 Amenities: {current_data.get('amenities', 'EMPTY')}
 Tour availability: {current_data.get('tour_availability', 'EMPTY')}
+Rental urgency: {current_data.get('rental_urgency', 'EMPTY')}
+Boston rental experience: {current_data.get('boston_rental_experience', 'EMPTY')}
 
 EXTRACT ALL NEW INFORMATION from this message: "{message}"
 
@@ -165,6 +155,10 @@ Look for these patterns:
 - Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
 - Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
 - Tour availability: "weekends", "available", "free", specific days/times, etc.
+- Rental urgency: "ASAP", "quickly", "few weeks", "flexible", "no rush", etc.
+- Boston rental experience: "first time", "never rented", "familiar", "rented before", etc.
+
+CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
 
 Return ONLY a JSON object with the NEW information found. Use these exact field names:
 - move_in_date  
@@ -174,16 +168,18 @@ Return ONLY a JSON object with the NEW information found. Use these exact field 
 - location
 - amenities
 - tour_availability
+- rental_urgency
+- boston_rental_experience
 
 EXAMPLES:
 Message: "I need a place for september 1st, 2025, looking for a 5 bed, 2 bath, 1500/mo, on mission hill please"
 Response: {{"move_in_date": "september 1st, 2025", "beds": "5", "baths": "2", "price": "1500/mo", "location": "mission hill"}}
 
-Message: "none" (when asked about amenities)
-Response: {{"amenities": "none"}}
+Message: "I need something ASAP, this is my first time renting in Boston"
+Response: {{"rental_urgency": "ASAP", "boston_rental_experience": "first time renting in Boston"}}
 
-Message: "I'm looking for something under $2000 in downtown"  
-Response: {{"price": "under $2000", "location": "downtown"}}
+Message: "I'm flexible with timing, I've rented here before"
+Response: {{"rental_urgency": "flexible", "boston_rental_experience": "rented here before"}}
 
 If NO new information found, return: {{}}
 """
