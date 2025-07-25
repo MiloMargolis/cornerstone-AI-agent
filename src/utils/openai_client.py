@@ -62,7 +62,7 @@ ANALYSIS REQUIRED: For each missing field ({missing_fields_str}), check the conv
 4. Have I already asked about move-in date? If YES, don't ask again.
 5. Have I already asked about amenities? If YES, don't ask again.
 
-ONLY ask about missing fields that you have NOT already inquired about in the conversation history.
+ONLY ask about missing fields that you have NOT already inquired about in the conversation history. Even if they give a short answer (for example, just AC for amenities), if they have answered the question, do not ask again.
 
 If you've already asked about a missing field:
 - Acknowledge what they said (if anything)
@@ -152,8 +152,6 @@ Look for these patterns:
 - Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
 - Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
 - Tour availability: "weekends", "available", "free", specific days/times, etc.
-
-CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
 
 Return ONLY a JSON object with the NEW information found. Use these exact field names:
 - move_in_date  
