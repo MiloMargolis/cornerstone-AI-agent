@@ -82,10 +82,23 @@ class SupabaseClient:
         qualification_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
         missing_fields = []
         
+        print(f"[DEBUG] Checking missing fields for lead {lead.get('phone', 'unknown')}:")
+        
         for field in qualification_fields:
-            if not lead.get(field) or lead.get(field).strip() == "":
+            value = lead.get(field)
+            
+            # More explicit checking: field is missing if it's None, empty string, or only whitespace
+            is_missing = (
+                value is None or 
+                (isinstance(value, str) and value.strip() == "")
+            )
+            
+            print(f"  {field}: '{value}' -> Missing: {is_missing}")
+            
+            if is_missing:
                 missing_fields.append(field)
         
+        print(f"[DEBUG] Final missing fields: {missing_fields}")
         return missing_fields
     
     def is_qualification_complete(self, lead: Dict) -> bool:

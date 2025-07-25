@@ -33,6 +33,16 @@ class OpenAIClient:
         
         known_info_str = "\n".join(known_info) if known_info else "No information collected yet"
         
+        # Create explicit list of fields that have ANY content (even partial)
+        fields_with_content = []
+        qualification_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
+        for field in qualification_fields:
+            value = lead_data.get(field)
+            if value and str(value).strip():  # Any non-empty content
+                fields_with_content.append(field)
+        
+        fields_with_content_str = ", ".join(fields_with_content) if fields_with_content else "none"
+        
         # Include chat history for better conversational context
         chat_history = lead_data.get("chat_history", "")
         if chat_history:
@@ -55,21 +65,20 @@ class OpenAIClient:
 🚨 CRITICAL ANTI-REPETITION CHECK 🚨
 Before asking ANYTHING, you MUST carefully read the entire conversation history above. If you see that you have ALREADY asked about any of these missing fields in previous messages, DO NOT ask about them again - even if the lead didn't answer or gave an unclear answer.
 
-ANALYSIS REQUIRED: For each missing field ({missing_fields_str}), check the conversation history:
-1. Have I already asked about bedrooms/bathrooms? If YES, don't ask again.
-2. Have I already asked about price/budget? If YES, don't ask again. 
-3. Have I already asked about location/neighborhoods? If YES, don't ask again.
-4. Have I already asked about move-in date? If YES, don't ask again.
-5. Have I already asked about amenities? If YES, don't ask again.
+🚨 DOUBLE-CHECK AGAINST FIELDS WITH CONTENT 🚨
+NEVER ask about any field listed in "FIELDS WITH ANY CONTENT" above. If a field has ANY data (even partial like "ac" for amenities), DO NOT ask about it.
 
-ONLY ask about missing fields that you have NOT already inquired about in the conversation history. Even if they give a short answer (for example, just AC for amenities), if they have answered the question, do not ask again.
+ANALYSIS REQUIRED: For each missing field ({missing_fields_str}), check:
+1. Is this field in the "FIELDS WITH ANY CONTENT" list? If YES, don't ask about it.
+2. Have I already asked about this field in the conversation history? If YES, don't ask again.
+3. Only ask about fields that are BOTH missing AND have no content AND haven't been asked about.
 
-If you've already asked about a missing field:
-- Acknowledge what they said (if anything)
-- Move on to other questions 
-- DO NOT repeat the same question
+ONLY ask about missing fields that:
+- Have NO content in the database 
+- Have NOT been asked about in conversation history
+- Are truly empty/null
 
-Bundle 2-3 NEW (never asked before) questions logically:
+Bundle 2-3 NEW (never asked before, no content) questions logically:
 - Bundle: bedrooms + bathrooms ("How many bedrooms and bathrooms are you looking for?")
 - Bundle: price + location ("What's your budget and preferred neighborhoods?")  
 - Bundle: move-in date + amenities ("When do you need to move in, and any specific amenities you want?")
@@ -89,11 +98,15 @@ CURRENT PHASE: {phase}
 === INFORMATION WE ALREADY HAVE ===
 {known_info_str}
 
+=== FIELDS WITH ANY CONTENT (NEVER ASK ABOUT THESE) ===
+Fields that have ANY data (even partial): {fields_with_content_str}
+
 === CRITICAL RULES ===
 1. DO NOT ask about any information listed in "INFORMATION WE ALREADY HAVE" - we have this data stored.
-2. DO NOT repeat questions you've already asked in the conversation history - even if the lead hasn't answered yet.
-3. Carefully analyze the conversation history to see what you've already asked about before formulating new questions.
-4. If you've already asked about a missing field, acknowledge their response or gently follow up - don't re-ask the same question.
+2. NEVER EVER ask about any fields listed in "FIELDS WITH ANY CONTENT" - even if the data seems incomplete, if we have ANY content for a field, don't ask about it again.
+3. DO NOT repeat questions you've already asked in the conversation history - even if the lead hasn't answered yet.
+4. Carefully analyze the conversation history to see what you've already asked about before formulating new questions.
+5. If you've already asked about a missing field, acknowledge their response or gently follow up - don't re-ask the same question.
 
 {phase_instructions}
 
