@@ -169,7 +169,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             else:
                 print("No AGENT_PHONE_NUMBER configured - skipping agent notification")
             
-            ai_response = "Perfect! I have all the information I need. I'll get my teammateto set up an exact time with you for the tour. They'll be in touch soon."
+            ai_response = "Perfect! I have all the information I need. I'll get my teammate to set up an exact time with you for the tour. They'll be in touch soon."
             print(f"Lead {lead_phone} completed qualification - marked as tour_ready")
         else:
             # Determine what fields are still missing and conversation phase
