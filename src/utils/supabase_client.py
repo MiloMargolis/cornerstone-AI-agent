@@ -27,7 +27,7 @@ class SupabaseClient:
                 return response.data[0]
             return None
         except Exception as e:
-            print(f"Error getting lead by phone: {e}") ## TODO: Should this really be an error? It seems like we are just checking if lead is present or not, not an error to create new lead.
+            print(f"Error getting lead by phone: {e}")
             return None
     
     def create_lead(self, phone: str, initial_message: str = "") -> Optional[Dict]:
