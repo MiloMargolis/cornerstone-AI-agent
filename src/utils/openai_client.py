@@ -11,7 +11,7 @@ class OpenAIClient:
         self.client = openai.OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
-    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False, missing_optional: List[str] = None) -> str:
+    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False, missing_optional: Optional[List[str]] = None) -> str:
         """Generate a conversational response based on lead data and missing fields"""
         
         if missing_optional is None:
@@ -133,8 +133,11 @@ class OpenAIClient:
                 max_tokens=200,
                 temperature=0.5
             )
-            
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            if content is None:
+                raise ValueError("OpenAI returned None content")
+
+            return content.strip()
         
         except Exception as e:
             print(f"Error generating OpenAI response: {e}")
@@ -143,57 +146,59 @@ class OpenAIClient:
     def extract_lead_info(self, message: str, current_data: Dict) -> Dict:
         """Extract any qualification information from the message"""
         
-        system_prompt = f"""You are an expert at extracting real estate information from SMS messages. You must be very thorough and catch ALL information provided.
+        system_prompt = f"""
+            You are an expert at extracting real estate information from SMS messages. You must be very thorough and catch ALL information provided.
 
-CURRENT LEAD DATA (do NOT extract if already filled):
-Move-in date: {current_data.get('move_in_date', 'EMPTY')}
-Price range: {current_data.get('price', 'EMPTY')}
-Bedrooms: {current_data.get('beds', 'EMPTY')}
-Bathrooms: {current_data.get('baths', 'EMPTY')}
-Location: {current_data.get('location', 'EMPTY')}
-Amenities: {current_data.get('amenities', 'EMPTY')}
-Tour availability: {current_data.get('tour_availability', 'EMPTY')}
-Rental urgency: {current_data.get('rental_urgency', 'EMPTY')}
-Boston rental experience: {current_data.get('boston_rental_experience', 'EMPTY')}
+            CURRENT LEAD DATA (do NOT extract if already filled):
+            Move-in date: {current_data.get('move_in_date', 'EMPTY')}
+            Price range: {current_data.get('price', 'EMPTY')}
+            Bedrooms: {current_data.get('beds', 'EMPTY')}
+            Bathrooms: {current_data.get('baths', 'EMPTY')}
+            Location: {current_data.get('location', 'EMPTY')}
+            Amenities: {current_data.get('amenities', 'EMPTY')}
+            Tour availability: {current_data.get('tour_availability', 'EMPTY')}
+            Rental urgency: {current_data.get('rental_urgency', 'EMPTY')}
+            Boston rental experience: {current_data.get('boston_rental_experience', 'EMPTY')}
 
-EXTRACT ALL NEW INFORMATION from this message: "{message}"
+            EXTRACT ALL NEW INFORMATION from this message: "{message}"
 
-Look for these patterns:
-- Move-in date: "september 1st", "Sept 1", "9/1", "next month", "ASAP", etc.
-- Price: "$1500", "1500/mo", "$2000 max", "under 2k", "budget is", etc.  
-- Bedrooms: "5 bed", "5 bedroom", "5br", "five bedroom", etc.
-- Bathrooms: "2 bath", "2 bathroom", "2ba", "two bath", etc.
-- Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
-- Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
-- Tour availability: "weekends", "available", "free", specific days/times, etc.
-- Rental urgency: "ASAP", "quickly", "few weeks", "flexible", "no rush", etc.
-- Boston rental experience: "first time", "never rented", "familiar", "rented before", etc.
+            Look for these patterns:
+            - Move-in date: "september 1st", "Sept 1", "9/1", "next month", "ASAP", etc.
+            - Price: "$1500", "1500/mo", "$2000 max", "under 2k", "budget is", etc.  
+            - Bedrooms: "5 bed", "5 bedroom", "5br", "five bedroom", etc.
+            - Bathrooms: "2 bath", "2 bathroom", "2ba", "two bath", etc.
+            - Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
+            - Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
+            - Tour availability: "weekends", "available", "free", specific days/times, etc.
+            - Rental urgency: "ASAP", "quickly", "few weeks", "flexible", "no rush", etc.
+            - Boston rental experience: "first time", "never rented", "familiar", "rented before", etc.
 
-CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
+            CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
 
-Return ONLY a JSON object with the NEW information found. Use these exact field names:
-- move_in_date  
-- price
-- beds  
-- baths
-- location
-- amenities
-- tour_availability
-- rental_urgency
-- boston_rental_experience
+            Return ONLY a JSON object with the NEW information found. Use these exact field names:
+            - move_in_date  
+            - price
+            - beds  
+            - baths
+            - location
+            - amenities
+            - tour_availability
+            - rental_urgency
+            - boston_rental_experience
 
-EXAMPLES:
-Message: "I need a place for september 1st, 2025, looking for a 5 bed, 2 bath, 1500/mo, on mission hill please"
-Response: {{"move_in_date": "september 1st, 2025", "beds": "5", "baths": "2", "price": "1500/mo", "location": "mission hill"}}
+            EXAMPLES:
+            Message: "I need a place for september 1st, 2025, looking for a 5 bed, 2 bath, 1500/mo, on mission hill please"
+            Response: {{"move_in_date": "september 1st, 2025", "beds": "5", "baths": "2", "price": "1500/mo", "location": "mission hill"}}
 
-Message: "I need something ASAP, this is my first time renting in Boston"
-Response: {{"rental_urgency": "ASAP", "boston_rental_experience": "first time renting in Boston"}}
+            Message: "I need something ASAP, this is my first time renting in Boston"
+            Response: {{"rental_urgency": "ASAP", "boston_rental_experience": "first time renting in Boston"}}
 
-Message: "I'm flexible with timing, I've rented here before"
-Response: {{"rental_urgency": "flexible", "boston_rental_experience": "rented here before"}}
+            Message: "I'm flexible with timing, I've rented here before"
+            Response: {{"rental_urgency": "flexible", "boston_rental_experience": "rented here before"}}
 
-If NO new information found, return: {{}}
-"""
+            If NO new information found, return: {{}}"
+            
+            """
 
         try:
             response = self.client.chat.completions.create(
@@ -207,7 +212,10 @@ If NO new information found, return: {{}}
             )
             
             import json
-            result_text = response.choices[0].message.content.strip()
+            result_text = response.choices[0].message.content
+            if result_text is None:
+                raise ValueError("OpenAI returned None content")
+            result_text = result_text.strip()
             print(f"[DEBUG] Extract attempt for message '{message}': {result_text}")
             
             extracted_info = json.loads(result_text)

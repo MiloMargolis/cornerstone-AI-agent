@@ -34,14 +34,14 @@ def check_if_phone_number_exists(phone_number: str) -> bool:
         print(f"Error checking if phone number exists: {e}")
         raise Exception(f"Failed to check phone number in database: {str(e)}")
 
-def create_lead(phone_number: str, initial_message: str):
+def call_create_lead(phone_number: str, name: str, initial_message: str):
     """
     Create a new lead in the database.
     """
     try:
-        lead = supabase_client.create_lead(phone_number, initial_message)
+        lead = supabase_client.create_lead(phone=phone_number, name=name, initial_message=initial_message)
         if not lead:
-            raise Exception(f"Failed to create lead record: {str(e)}")
+            raise Exception("Failed to create lead record")
         return lead
     except Exception as e:
         print(f"Error creating lead: {e}")
@@ -88,8 +88,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Missing required field: phone_number'})
             }
+        if not event or 'name' not in event:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing required field: name'})
+            }
         
         phone_number = event['phone_number']
+        name = event['name']
         
         # Validate phone number format
         normalized_phone_number = validate_phone_number(phone_number)
@@ -107,7 +113,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         # Create a new lead
-        lead = create_lead(normalized_phone_number, "")
+        lead = call_create_lead(phone_number=normalized_phone_number, name=name, initial_message="")
         
         # Send initial outreach message
         if send_initial_outreach_message(lead, phone_number):

@@ -93,7 +93,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         if not lead:
             # Create new lead
             print(f"Creating new lead for phone: {lead_phone}")
-            lead = supabase_client.create_lead(lead_phone, message)
+            lead = supabase_client.create_lead(phone=lead_phone, initial_message=message)
             if not lead:
                 raise Exception("Failed to create lead record")
         
@@ -101,8 +101,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         extracted_info = openai_client.extract_lead_info(message, lead)
         
         # Check if tour availability was just provided for the first time
-        tour_just_provided = (extracted_info.get("tour_availability") and 
-                             (not lead.get("tour_availability") or lead.get("tour_availability").strip() == ""))
+        tour_just_provided = extracted_info.get("tour_availabilty") and not lead.get("tour_availability", "").strip()
         
         # Update lead with extracted information
         if extracted_info:

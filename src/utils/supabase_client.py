@@ -30,7 +30,7 @@ class SupabaseClient:
             print(f"Error getting lead by phone: {e}")
             return None
     
-    def create_lead(self, phone: str, initial_message: str = "") -> Optional[Dict]:
+    def create_lead(self, phone: str, name: str = "", initial_message: str = "") -> Optional[Dict]: #TODO: change phone and name to hashmap of user data?
         """Create a new lead record"""
         try:
             from datetime import datetime
@@ -39,7 +39,7 @@ class SupabaseClient:
             
             lead_data = {
                 "phone": phone,
-                "name": "",
+                "name": name,
                 "email": "",
                 "beds": "",
                 "baths": "",
@@ -134,9 +134,11 @@ class SupabaseClient:
     
     def needs_tour_availability(self, lead: Dict) -> bool:
         """Check if tour availability is needed"""
-        return (self.is_qualification_complete(lead) and 
-                (not lead.get("tour_availability") or lead.get("tour_availability").strip() == "") and
-                not lead.get("tour_ready", False))
+        qualified = self.is_qualification_complete(lead)
+        tour_availability = lead.get("tour_availability", "").strip()
+        tour_ready = lead.get("tour_ready", False)
+
+        return qualified and not tour_availability and not tour_ready
     
     def set_tour_ready(self, phone: str) -> bool:
         """Mark lead as tour ready"""
