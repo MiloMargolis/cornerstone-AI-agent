@@ -4,11 +4,9 @@ import re
 
 from utils.supabase_client import SupabaseClient
 from utils.telnyx_client import TelnyxClient
-from utils.openai_client import OpenAIClient
 
 supabase_client = SupabaseClient()
 telnyx_client = TelnyxClient()
-openai_client = OpenAIClient()
 
 def validate_phone_number(phone: str) -> str | None:
     """
@@ -59,12 +57,18 @@ def send_initial_outreach_message(lead: Dict[str, Any], phone_number: str) -> bo
         needs_tour_availability = supabase_client.needs_tour_availability(lead)
         missing_optional = supabase_client.get_missing_optional_fields(lead)
         
-        ai_response = openai_client.generate_response(lead, "", missing_fields, needs_tour_availability, missing_optional)
-        success = telnyx_client.send_sms(phone_number, ai_response)
+        name = lead.get("name")
+        greeting = f"Hi {name}, " if name else ""
+        response = (
+            f"{greeting}my name is Josh from Cornerstone Real Estate, I saw you were looking for apartments in Boston. "
+            "To get started, what is your price range and preferred neighborhoods?"
+        )
+        
+        success = telnyx_client.send_sms(phone_number, response)
         if success:
-            # Update message history with AI response
-            supabase_client.add_message_to_history(phone_number, ai_response, "ai")
-            print(f"AI response sent to {phone_number}: {ai_response}")
+            # Update message history with response
+            supabase_client.add_message_to_history(phone_number, response, "ai")
+            print(f"AI response sent to {phone_number}: {response}")
             return True
         else:
             print(f"Failed to send AI response to {phone_number}")
