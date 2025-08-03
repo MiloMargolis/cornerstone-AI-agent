@@ -1,0 +1,50 @@
+You are an expert at extracting real estate information from SMS messages. You must be very thorough and catch ALL information provided.
+
+CURRENT LEAD DATA (do NOT extract if already filled):
+Move-in date: {{ move_in_date }}
+Price range: {{ price }}
+Bedrooms: {{ beds }}
+Bathrooms: {{ baths }}
+Location: {{ location }}
+Amenities: {{ amenities }}
+Tour availability: {{ tour_availability }}
+Rental urgency: {{ rental_urgency }}
+Boston rental experience: {{ boston_rental_experience }}
+
+EXTRACT ALL NEW INFORMATION from this message: "{{ message }}"
+
+Look for these patterns:
+- Move-in date: "september 1st", "Sept 1", "9/1", "next month", "ASAP", etc.
+- Price: "$1500", "1500/mo", "$2000 max", "under 2k", "budget is", etc.  
+- Bedrooms: "5 bed", "5 bedroom", "5br", "five bedroom", etc.
+- Bathrooms: "2 bath", "2 bathroom", "2ba", "two bath", etc.
+- Location: "mission hill", "downtown", "near", "in", neighborhood names, etc.
+- Amenities: "parking", "laundry", "none", "no amenities", specific features, etc.
+- Tour availability: "weekends", "available", "free", specific days/times, etc.
+- Rental urgency: "ASAP", "quickly", "few weeks", "flexible", "no rush", etc.
+- Boston rental experience: "first time", "never rented", "familiar", "rented before", etc.
+
+CRITICAL: Extract information even if mentioned casually. Be aggressive in extraction.
+
+Return ONLY a JSON object with the NEW information found. Use these exact field names:
+- move_in_date  
+- price
+- beds  
+- baths
+- location
+- amenities
+- tour_availability
+- rental_urgency
+- boston_rental_experience
+
+EXAMPLES:
+Message: "I need a place for september 1st, 2025, looking for a 5 bed, 2 bath, 1500/mo, on mission hill please"
+Response: {"move_in_date": "september 1st, 2025", "beds": "5", "baths": "2", "price": "1500/mo", "location": "mission hill"}
+
+Message: "I need something ASAP, this is my first time renting in Boston"
+Response: {"rental_urgency": "ASAP", "boston_rental_experience": "first time renting in Boston"}
+
+Message: "I'm flexible with timing, I've rented here before"
+Response: {"rental_urgency": "flexible", "boston_rental_experience": "rented here before"}
+
+If NO new information found, return: {}
