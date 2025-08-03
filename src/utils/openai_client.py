@@ -1,6 +1,6 @@
 import os
 import openai
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from utils.prompt_loader import PromptLoader
 from utils.constants import PHASE_CONFIGS, REQUIRED_FIELDS, OPTIONAL_FIELDS
@@ -15,13 +15,8 @@ class OpenAIClient:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.prompt_loader = PromptLoader()
 
-    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False, missing_optional: Optional[List[str]] = None) -> str:
-        """Generate a conversational response based on lead data and missing fields"""
-        
-        if missing_optional is None:
-            missing_optional = []
-        
-        # Build simple list of what we have vs don't have for REQUIRED fields
+    def _get_database_status(self, lead_data: Dict) -> str:
+        """Generate a string representing the database status of required and optional fields"""
         database_status = []
         
         for field in REQUIRED_FIELDS:
@@ -30,7 +25,6 @@ class OpenAIClient:
             status = "✓ HAS DATA" if has_content else "✗ MISSING"
             database_status.append(f"{field}: {status} ({value if has_content else 'empty'})")
         
-        # Add optional fields status
         database_status.append("\nOPTIONAL FIELDS:")
         for field in OPTIONAL_FIELDS:
             value = lead_data.get(field)
@@ -39,7 +33,10 @@ class OpenAIClient:
             database_status.append(f"{field}: {status} ({value if has_content else 'could ask about'})")
         
         database_status_str = "\n".join(database_status)
-        
+        return database_status_str
+    
+    def _get_chat_history(self, lead_data: Dict) -> str:
+        """Retrieve the chat history in a format suitable for the OpenAI API"""
         # Include chat history for better conversational context
         chat_history = lead_data.get("chat_history", "")
         if chat_history:
@@ -50,7 +47,10 @@ class OpenAIClient:
             chat_history_str = "\n".join(chat_lines)
         else:
             chat_history_str = "No conversation history yet"
-        
+        return chat_history_str
+    
+    def _get_phase_instructions(self, needs_tour_availability: bool, missing_fields: List[str], missing_optional: Optional[List[str]]) -> Tuple[str, str]:
+        """Determine the current phase and instructions based on the lead's data"""
         if needs_tour_availability:
             phase = PHASE_CONFIGS["TOUR_SCHEDULING"].name
             phase_instructions = PHASE_CONFIGS["TOUR_SCHEDULING"].instructions
@@ -66,6 +66,19 @@ class OpenAIClient:
         else:
             phase = PHASE_CONFIGS["COMPLETE"].name
             phase_instructions = PHASE_CONFIGS["COMPLETE"].instructions
+        return phase, phase_instructions
+
+
+    def generate_response(self, lead_data: Dict, incoming_message: str, missing_fields: List[str], needs_tour_availability: bool = False, missing_optional: Optional[List[str]] = None) -> str:
+        """Generate a conversational response based on lead data and missing fields"""
+        
+        if missing_optional is None:
+            missing_optional = []
+        
+        database_status_str = self._get_database_status(lead_data)
+        chat_history_str = self._get_chat_history(lead_data)
+        
+        phase, phase_instructions = self._get_phase_instructions(needs_tour_availability, missing_fields, missing_optional)
 
         system_prompt = self.prompt_loader.render("qualification_system.tmpl", {
             "phase": phase,
