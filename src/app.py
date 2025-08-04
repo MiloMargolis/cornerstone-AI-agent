@@ -156,7 +156,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             ai_response = _generate_delay_response(delay_info)
 
         # Check if conversation is already complete (tour_ready = True)
-        elif lead.get("tour_ready", True):
+        elif lead.get("tour_ready", False):
             # Conversation is complete - stay completely silent
             print(
                 f"Lead {lead_phone} is tour_ready - staying silent (no response sent)"
