@@ -13,6 +13,7 @@ else:
     from utils.telnyx_client import MockTelnyxClient as TelnyxClient
 from utils.delay_detector import DelayDetector
 from config.follow_up_config import FOLLOW_UP_SCHEDULE
+from utils.constants import REQUIRED_FIELDS, OPTIONAL_FIELDS
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -75,6 +76,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 500,
             'body': json.dumps({'error': str(e)})
         }
+    
+
+def _generate_delay_response(delay_info: Dict[str, Any]) -> str:
+    # Generate appropriate delay response
+    delay_days = delay_info["delay_days"]
+    if delay_days == 1:
+        time_phrase = "tomorrow"
+    elif delay_days <= 7:
+        time_phrase = f"in {delay_days} days"
+    elif delay_days <= 30:
+        weeks = delay_days // 7
+        time_phrase = f"in {weeks} week{'s' if weeks > 1 else ''}"
+    else:
+        months = delay_days // 30
+        time_phrase = f"in {months} month{'s' if months > 1 else ''}"
+    
+    ai_response = f"No problem! I'll reach out {time_phrase}. Feel free to message me anytime if you have questions before then."
+
+    return ai_response
+
 
 def process_lead_message(lead_phone: str, message: str) -> str:
     """
@@ -100,18 +121,14 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Extract any new information from the message
         extracted_info = openai_client.extract_lead_info(message, lead)
         
-        # Check if tour availability was just provided for the first time
-        tour_just_provided = extracted_info.get("tour_availabilty") and not lead.get("tour_availability", "").strip()
-        
         # Update lead with extracted information
         if extracted_info:
             print(f"[DEBUG] Extracted info: {extracted_info}")
             updated_lead = supabase_client.update_lead(lead_phone, extracted_info)
             if updated_lead:
-                lead = updated_lead
                 print(f"[DEBUG] Lead updated successfully. Current lead data:")
-                for field in ["move_in_date", "price", "beds", "baths", "location", "amenities", "tour_availability"]:
-                    print(f"  {field}: '{lead.get(field, 'EMPTY')}'")
+                for field in ["move_in_date", "price", "beds", "baths", "location", "amenities", "tour_availability", "tour_ready"]:
+                    print(f"  {field}: '{updated_lead.get(field, 'EMPTY')}'")
             else:
                 print(f"[ERROR] Failed to update lead with extracted info: {extracted_info}")
         else:
@@ -119,38 +136,25 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
-        
+
         # Check for delay requests
         delay_info = delay_detector.detect_delay_request(message)
         if delay_info:
             # Pause follow-ups until the requested time
             delay_until = delay_detector.calculate_delay_until(delay_info)
             supabase_client.pause_follow_up_until(lead_phone, delay_until)
-            
-            # Generate appropriate delay response
-            delay_days = delay_info["delay_days"]
-            if delay_days == 1:
-                time_phrase = "tomorrow"
-            elif delay_days <= 7:
-                time_phrase = f"in {delay_days} days"
-            elif delay_days <= 30:
-                weeks = delay_days // 7
-                time_phrase = f"in {weeks} week{'s' if weeks > 1 else ''}"
-            else:
-                months = delay_days // 30
-                time_phrase = f"in {months} month{'s' if months > 1 else ''}"
-            
-            ai_response = f"No problem! I'll reach out {time_phrase}. Feel free to message me anytime if you have questions before then."
+            ai_response = _generate_delay_response(delay_info)
         
         # Check if conversation is already complete (tour_ready = True)
-        elif lead.get("tour_ready", False):
+        elif lead.get("tour_ready", True):
             # Conversation is complete - stay completely silent
             print(f"Lead {lead_phone} is tour_ready - staying silent (no response sent)")
             return "SILENT_TOUR_READY"  # Return early, no SMS sent
         
         # Check if tour availability was just provided - trigger manager response
-        elif tour_just_provided:
+        elif extracted_info.get("tour_availability") and not lead.get("tour_availability", "").strip():
             # Set tour_ready to true
+            print(f"Lead {lead_phone} provided tour availability - marking as tour_ready")
             supabase_client.set_tour_ready(lead_phone)
             
             # Send notification to agent
@@ -181,7 +185,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             print(f"  missing_optional_fields: {missing_optional}")
             print(f"  needs_tour_availability: {needs_tour_availability}")
             print(f"  Current lead data for missing fields check:")
-            for field in ["move_in_date", "price", "beds", "baths", "location", "amenities", "rental_urgency", "boston_rental_experience"]:
+            for field in REQUIRED_FIELDS + OPTIONAL_FIELDS:
                 value = lead.get(field, 'EMPTY')
                 is_empty = not value or value.strip() == ""
                 print(f"    {field}: '{value}' (empty: {is_empty})")
