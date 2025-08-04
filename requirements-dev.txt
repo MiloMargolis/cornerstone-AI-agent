@@ -1,0 +1,11 @@
+# Development dependencies for testing and linting
+pytest
+pytest-cov
+pytest-mock
+moto[all]
+black
+isort
+flake8
+mypy
+bandit
+safety

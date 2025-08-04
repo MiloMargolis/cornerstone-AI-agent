@@ -1,0 +1,156 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r src/requirements.txt
+        pip install pytest pytest-cov pytest-mock moto[all]
+
+    - name: Set up environment variables for testing
+      run: |
+        echo "TELNYX_API_KEY=test_key" >> $GITHUB_ENV
+        echo "TELNYX_PHONE_NUMBER=+1234567890" >> $GITHUB_ENV
+        echo "OPENAI_API_KEY=test_key" >> $GITHUB_ENV
+        echo "SUPABASE_URL=https://test.supabase.co" >> $GITHUB_ENV
+        echo "SUPABASE_KEY=test_key" >> $GITHUB_ENV
+        echo "AGENT_PHONE_NUMBER=+1987654321" >> $GITHUB_ENV
+        echo "OPENAI_MODEL=gpt-4o-mini" >> $GITHUB_ENV
+        echo "MOCK_TELNX=1" >> $GITHUB_ENV
+
+    - name: Run unit tests for app.py (SMS Handler)
+      run: |
+        python -m pytest tests/test_app.py -v --cov=src.app --cov-report=term-missing
+
+    - name: Run unit tests for follow_up_handler.py
+      run: |
+        python -m pytest tests/test_follow_up_handler.py -v --cov=src.follow_up_handler --cov-report=term-missing
+
+    - name: Run unit tests for outreach_handler.py
+      run: |
+        python -m pytest tests/test_outreach_handler.py -v --cov=src.outreach_handler --cov-report=term-missing
+
+    - name: Run unit tests for utility modules
+      run: |
+        python -m pytest tests/test_utils/ -v --cov=src.utils --cov-report=term-missing
+
+    - name: Generate coverage report
+      run: |
+        python -m pytest tests/ --cov=src --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to Codecov (optional)
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install linting dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort mypy
+
+    - name: Run Black (code formatting check)
+      run: |
+        black --check --diff src/
+
+    - name: Run isort (import sorting check)
+      run: |
+        isort --check-only --diff src/
+
+    - name: Run Flake8 (linting)
+      run: |
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run MyPy (type checking)
+      run: |
+        mypy src/ --ignore-missing-imports
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install security scanning tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run Bandit (security linting)
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/
+
+    - name: Run Safety (dependency vulnerability check)
+      run: |
+        safety check --file src/requirements.txt
+
+  validate-sam:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+
+    - name: Validate SAM template
+      run: |
+        sam validate --template-file template.yaml
+
+    - name: SAM build (dry run)
+      run: |
+        sam build --use-container
