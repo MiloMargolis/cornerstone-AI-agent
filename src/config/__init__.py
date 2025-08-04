@@ -1,1 +1,1 @@
-# Configuration package for CornerStone AI SMS Assistant 
+# Configuration package for CornerStone AI SMS Assistant

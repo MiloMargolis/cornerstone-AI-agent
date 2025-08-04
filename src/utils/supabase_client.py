@@ -1,42 +1,45 @@
 import os
 from supabase import create_client, Client
 from typing import Dict, Optional, List
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
+
 
 class SupabaseClient:
     def __init__(self):
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
-        
+
         if not url or not key:
-            raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
+            raise ValueError(
+                "Missing SUPABASE_URL or SUPABASE_KEY environment variables"
+            )
         self.client: Client = create_client(url, key)
-        try:
-            assert self.client is not None, "Supabase client creation failed"
-            # Try a simple query to check connection (e.g., list tables or select from a known table)
-            self.client.table("leads").select("*").limit(1).execute()
-        except Exception as e:
-            raise RuntimeError(f"Supabase client creation or test query failed: {e}")
-    
+
     def get_lead_by_phone(self, phone: str) -> Optional[Dict]:
         """Get lead record by phone number"""
         try:
-            response = self.client.table("leads").select("*").eq("phone", phone).execute()
+            response = (
+                self.client.table("leads").select("*").eq("phone", phone).execute()
+            )
             if response.data:
                 return response.data[0]
             return None
         except Exception as e:
             print(f"Error getting lead by phone: {e}")
             return None
-    
-    def create_lead(self, phone: str, name: str = "", initial_message: str = "") -> Optional[Dict]: #TODO: change phone and name to hashmap of user data?
+
+    def create_lead(
+        self, phone: str, name: str = "", initial_message: str = ""
+    ) -> Optional[Dict]:  # TODO: change phone and name to hashmap of user data?
         """Create a new lead record"""
         try:
             from datetime import datetime
+
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-            initial_chat = f"{timestamp} - Lead: {initial_message}\n" if initial_message else ""
-            
+            initial_chat = (
+                f"{timestamp} - Lead: {initial_message}\n" if initial_message else ""
+            )
+
             lead_data = {
                 "phone": phone,
                 "name": name,
@@ -56,7 +59,7 @@ class SupabaseClient:
                 "follow_up_stage": "scheduled",
                 # New optional fields
                 "rental_urgency": "",
-                "boston_rental_experience": ""
+                "boston_rental_experience": "",
             }
             response = self.client.table("leads").insert(lead_data).execute()
             if response.data:
@@ -65,73 +68,85 @@ class SupabaseClient:
         except Exception as e:
             print(f"Error creating lead: {e}")
             return None
-    
+
     def update_lead(self, phone: str, updates: Dict) -> Optional[Dict]:
         """Update lead record with new information"""
         try:
             # Always update last_contacted timestamp
+            print(f"[DEBUG] Updates: {updates}")
             updates["last_contacted"] = "now()"
-            
-            response = self.client.table("leads").update(updates).eq("phone", phone).execute()
+
+            response = (
+                self.client.table("leads").update(updates).eq("phone", phone).execute()
+            )
             if response.data:
                 return response.data[0]
             return None
         except Exception as e:
             print(f"Error updating lead: {e}")
             return None
-    
+
     def get_missing_fields(self, lead: Dict) -> List[str]:
         """Get list of REQUIRED qualification fields that are still empty for a lead"""
         # Only required fields - these must be filled for tour_ready
-        required_fields = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
+        required_fields = [
+            "move_in_date",
+            "price",
+            "beds",
+            "baths",
+            "location",
+            "amenities",
+        ]
         missing_fields = []
-        
-        print(f"[DEBUG] Checking missing REQUIRED fields for lead {lead.get('phone', 'unknown')}:")
-        
+
+        print(
+            f"[DEBUG] Checking missing REQUIRED fields for lead {lead.get('phone', 'unknown')}:"
+        )
+
         for field in required_fields:
             value = lead.get(field)
-            
+
             # More explicit checking: field is missing if it's None, empty string, or only whitespace
-            is_missing = (
-                value is None or 
-                (isinstance(value, str) and value.strip() == "")
+            is_missing = value is None or (
+                isinstance(value, str) and value.strip() == ""
             )
-            
+
             print(f"  {field}: '{value}' -> Missing: {is_missing}")
-            
+
             if is_missing:
                 missing_fields.append(field)
-        
+
         print(f"[DEBUG] Final missing REQUIRED fields: {missing_fields}")
         return missing_fields
-    
+
     def get_missing_optional_fields(self, lead: Dict) -> List[str]:
         """Get list of OPTIONAL fields that could be asked about but don't affect tour_ready"""
         optional_fields = ["rental_urgency", "boston_rental_experience"]
         missing_optional = []
-        
-        print(f"[DEBUG] Checking missing OPTIONAL fields for lead {lead.get('phone', 'unknown')}:")
-        
+
+        print(
+            f"[DEBUG] Checking missing OPTIONAL fields for lead {lead.get('phone', 'unknown')}:"
+        )
+
         for field in optional_fields:
             value = lead.get(field)
-            
-            is_missing = (
-                value is None or 
-                (isinstance(value, str) and value.strip() == "")
+
+            is_missing = value is None or (
+                isinstance(value, str) and value.strip() == ""
             )
-            
+
             print(f"  {field}: '{value}' -> Missing: {is_missing}")
-            
+
             if is_missing:
                 missing_optional.append(field)
-        
+
         print(f"[DEBUG] Final missing OPTIONAL fields: {missing_optional}")
         return missing_optional
-    
+
     def is_qualification_complete(self, lead: Dict) -> bool:
         """Check if all qualification fields are complete"""
         return len(self.get_missing_fields(lead)) == 0
-    
+
     def needs_tour_availability(self, lead: Dict) -> bool:
         """Check if tour availability is needed"""
         qualified = self.is_qualification_complete(lead)
@@ -139,117 +154,117 @@ class SupabaseClient:
         tour_ready = lead.get("tour_ready", False)
 
         return qualified and not tour_availability and not tour_ready
-    
+
     def set_tour_ready(self, phone: str) -> bool:
         """Mark lead as tour ready"""
         try:
-            updates = {
-                "tour_ready": True,
-                "last_contacted": "now()"
-            }
+            updates = {"tour_ready": True, "last_contacted": "now()"}
             result = self.update_lead(phone, updates)
             return result is not None
         except Exception as e:
             print(f"Error setting tour ready: {e}")
             return False
-    
+
     def add_message_to_history(self, phone: str, message: str, sender: str = "lead"):
         """Add a message to the lead's conversation history"""
         try:
             from datetime import datetime
+
             lead = self.get_lead_by_phone(phone)
             if lead:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
                 existing_history = lead.get("chat_history", "")
                 sender_label = "Lead" if sender == "lead" else "AI"
                 new_entry = f"{timestamp} - {sender_label}: {message}\n"
-                
+
                 updated_history = existing_history + new_entry
-                
-                updates = {
-                    "chat_history": updated_history,
-                    "last_contacted": "now()"
-                }
+
+                updates = {"chat_history": updated_history, "last_contacted": "now()"}
                 self.update_lead(phone, updates)
         except Exception as e:
             print(f"Error adding message to history: {e}")
-    
+
     def schedule_follow_up(self, phone: str, days: int, stage: str) -> bool:
         """Schedule next follow-up for a lead"""
         try:
             from datetime import datetime, timedelta
+
             next_follow_up = datetime.now() + timedelta(days=days)
-            
+
             updates = {
                 "next_follow_up_time": next_follow_up.isoformat(),
-                "follow_up_stage": stage
+                "follow_up_stage": stage,
             }
-            
+
             result = self.update_lead(phone, updates)
             return result is not None
         except Exception as e:
             print(f"Error scheduling follow-up: {e}")
             return False
-    
+
     def pause_follow_up_until(self, phone: str, until_date: datetime) -> bool:
         """Pause follow-ups until a specific date"""
         try:
             updates = {
                 "follow_up_paused_until": until_date.isoformat(),
-                "next_follow_up_time": None  # Clear any scheduled follow-up
+                "next_follow_up_time": None,  # Clear any scheduled follow-up
             }
-            
+
             result = self.update_lead(phone, updates)
             return result is not None
         except Exception as e:
             print(f"Error pausing follow-up: {e}")
             return False
-    
+
     def get_leads_needing_follow_up(self) -> List[Dict]:
         """Get leads that need follow-up messages"""
         try:
             current_time = datetime.now()
-            
+
             # Query for leads that:
             # - Are not tour_ready
             # - Have qualification missing
             # - Have next_follow_up_time <= now
             # - Are not paused or pause period has expired
             # - Haven't exceeded max follow-ups
-            
+
             response = self.client.table("leads").select("*").execute()
-            
+
             leads_to_follow_up = []
             for lead in response.data:
                 # Skip if tour ready
                 if lead.get("tour_ready", False):
                     continue
-                
+
                 # Skip if all qualification fields are complete
                 if len(self.get_missing_fields(lead)) == 0:
                     continue
-                
+
                 # Skip if max follow-ups exceeded
                 if lead.get("follow_up_count", 0) >= 5:  # MAX_FOLLOW_UPS
                     continue
-                
+
                 # Skip if paused and pause period hasn't expired
                 if lead.get("follow_up_paused_until"):
-                    pause_until = datetime.fromisoformat(lead["follow_up_paused_until"].replace("Z", "+00:00"))
+                    pause_until = datetime.fromisoformat(
+                        lead["follow_up_paused_until"].replace("Z", "+00:00")
+                    )
                     if current_time < pause_until:
                         continue
-                
+
                 # Include if next_follow_up_time is due
                 if lead.get("next_follow_up_time"):
-                    follow_up_time = datetime.fromisoformat(lead["next_follow_up_time"].replace("Z", "+00:00"))
+                    follow_up_time = datetime.fromisoformat(
+                        lead["next_follow_up_time"].replace("Z", "+00:00")
+                    )
                     if current_time >= follow_up_time:
                         leads_to_follow_up.append(lead)
-            
+
             return leads_to_follow_up
         except Exception as e:
             print(f"Error getting leads for follow-up: {e}")
             return []
-    
+
     def increment_follow_up_count(self, phone: str) -> bool:
         """Increment follow-up count for a lead"""
         try:
@@ -258,11 +273,11 @@ class SupabaseClient:
                 new_count = lead.get("follow_up_count", 0) + 1
                 updates = {
                     "follow_up_count": new_count,
-                    "next_follow_up_time": None  # Clear this follow-up
+                    "next_follow_up_time": None,  # Clear this follow-up
                 }
                 result = self.update_lead(phone, updates)
                 return result is not None
             return False
         except Exception as e:
             print(f"Error incrementing follow-up count: {e}")
-            return False 
+            return False
