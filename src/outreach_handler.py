@@ -52,6 +52,31 @@ def call_create_lead(phone_number: str, name: str, initial_message: str):
         raise Exception(f"Failed to create lead record: {str(e)}")
 
 
+def extract_first_name(full_name: str | None) -> str:
+    """
+    Extract a clean first name from a provided name string.
+    - Trims whitespace
+    - Splits on whitespace and uses the first token
+    - Normalizes casing (Title case)
+    - Strips non-name punctuation except hyphens/apostrophes
+    """
+    if not full_name:
+        return ""
+
+    # Split on whitespace and take the first non-empty part
+    parts = [part for part in re.split(r"\s+", full_name.strip()) if part]
+    if not parts:
+        return ""
+
+    raw_first = parts[0]
+    # Keep letters plus common name punctuation (hyphen, apostrophe)
+    cleaned_first = re.sub(r"[^A-Za-z'\-]", "", raw_first)
+    if not cleaned_first:
+        return ""
+
+    return cleaned_first[:1].upper() + cleaned_first[1:].lower()
+
+
 def send_initial_outreach_message(lead: Dict[str, Any], phone_number: str) -> bool:
     """
     Send the initial outreach message to the phone number.
@@ -63,7 +88,8 @@ def send_initial_outreach_message(lead: Dict[str, Any], phone_number: str) -> bo
         missing_optional = supabase_client.get_missing_optional_fields(lead)
 
         name = lead.get("name")
-        greeting = f"Hi {name}, " if name else ""
+        first_name = extract_first_name(name)
+        greeting = f"Hi {first_name}, " if first_name else "Hi, "
         response = (
             f"{greeting}my name is Josh from Cornerstone Real Estate, I saw you were looking for apartments in Boston. "
             "To get started, what is your price range and preferred neighborhoods?"
