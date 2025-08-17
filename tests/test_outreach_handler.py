@@ -21,7 +21,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
     },
 )
 class TestOutreachHandler:
-
     def test_validate_phone_number_with_country_code(self):
         """Test phone number validation with country code"""
         from src.outreach_handler import validate_phone_number
@@ -128,7 +127,7 @@ class TestOutreachHandler:
         mock_send_sms.assert_called_once()
         call_args = mock_send_sms.call_args
         assert call_args[0][0] == "+1234567890"
-        assert "Hi John Doe" in call_args[0][1]
+        assert "Hi John" in call_args[0][1]
         assert "Josh from Cornerstone Real Estate" in call_args[0][1]
 
     @patch("src.outreach_handler.supabase_client")

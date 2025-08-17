@@ -1,6 +1,5 @@
-import json
 import pytest
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import patch, Mock
 import sys
 import os
 
@@ -10,7 +9,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "test_key", "OPENAI_MODEL": "gpt-4o-mini"})
 class TestOpenAIClient:
-
     @patch("src.utils.openai_client.openai.OpenAI")
     def test_init_success(self, mock_openai):
         """Test successful initialization of OpenAI client"""
