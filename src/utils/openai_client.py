@@ -4,6 +4,15 @@ from typing import Dict, List, Optional, Tuple
 
 from utils.prompt_loader import PromptLoader
 from utils.constants import PHASE_CONFIGS, REQUIRED_FIELDS, OPTIONAL_FIELDS
+from datetime import datetime
+from typing import TypedDict
+import json
+
+
+class DelayResult(TypedDict):
+    delay_days: int
+    delay_type: str
+    original_text: str
 
 
 class OpenAIClient:
@@ -169,8 +178,6 @@ class OpenAIClient:
                 temperature=0.1,
             )
 
-            import json
-
             result_text = response.choices[0].message.content
             if result_text is None:
                 raise ValueError("OpenAI returned None content")
@@ -184,3 +191,57 @@ class OpenAIClient:
         except Exception as e:
             print(f"[ERROR] Failed to extract lead info from '{message}': {e}")
             return {}
+
+    def detect_delay(
+        self, message: str, reference_time: Optional[datetime] = None
+    ) -> DelayResult:
+        if reference_time is None:
+            reference_time = datetime.now()
+
+        delay_prompt = self.prompt_loader.render("delay.tmpl", {})
+
+        try:
+            resp = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": delay_prompt,
+                    },
+                    {"role": "user", "content": message},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=100,
+                temperature=0.1,
+            )
+
+            # The SDK may still give content as string, so parse safely
+            content = resp.choices[0].message.content
+            if not content:
+                raise ValueError("OpenAI returned empty content")
+            
+            data = json.loads(content)
+            
+            # Extract the delay information
+            has_delay = data.get("has_delay", False)
+            delay_days = data.get("delay_days", 0)
+            delay_type = data.get("delay_type", "default")
+            
+            # Ensure delay_days is non-negative
+            if delay_days < 0:
+                delay_days = 0
+                delay_type = "default"
+
+            return {
+                "delay_days": delay_days,
+                "delay_type": delay_type,
+                "original_text": message,
+            }
+
+        except Exception as e:
+            print(f"[WARN] Failed to detect delay for '{message}': {e}")
+            return {
+                "delay_days": 7,
+                "delay_type": "default",
+                "original_text": message,
+            }
