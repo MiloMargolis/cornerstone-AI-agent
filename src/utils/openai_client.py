@@ -204,24 +204,60 @@ class OpenAIClient:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a datetime normalizer. Respond ONLY in JSON.",
+                        "content": """You are a datetime normalizer that extracts delay information from text. 
+Analyze the user's message and determine if they want to be contacted at a specific time in the future.
+
+Respond with a JSON object in this exact format:
+{
+  "has_delay": true/false,
+  "delay_days": number of days to wait (0 if no delay or past date),
+  "delay_type": "specific" if explicit time given, "default" if no explicit time
+}
+
+IMPORTANT: "delay_type" should be:
+- "specific" for ANY explicit time reference (even vague ones like "a few days", "next week", "in a month")
+- "default" only for vague responses with NO time reference (like "I'm busy", "not ready yet")
+
+Examples:
+- "contact me in 3 weeks" → {"has_delay": true, "delay_days": 21, "delay_type": "specific"}
+- "call me in 2 days" → {"has_delay": true, "delay_days": 2, "delay_type": "specific"}
+- "a few days" → {"has_delay": true, "delay_days": 3, "delay_type": "specific"}
+- "next week" → {"has_delay": true, "delay_days": 7, "delay_type": "specific"}
+- "in a month" → {"has_delay": true, "delay_days": 30, "delay_type": "specific"}
+- "I'm not ready yet" → {"has_delay": true, "delay_days": 7, "delay_type": "default"}
+- "I'm busy" → {"has_delay": true, "delay_days": 7, "delay_type": "default"}
+- "Yes, I'm interested" → {"has_delay": false, "delay_days": 0, "delay_type": "default"}
+- "2 days ago" → {"has_delay": false, "delay_days": 0, "delay_type": "default"}
+
+Only respond with valid JSON."""
                     },
-                    {"role": "user", "content": "contact me in 3 weeks"},
+                    {"role": "user", "content": message},
                 ],
                 response_format={"type": "json_object"},
+                max_tokens=100,
+                temperature=0.1,
             )
 
             # The SDK may still give content as string, so parse safely
             content = resp.choices[0].message.content
             if not content:
                 raise ValueError("OpenAI returned empty content")
+            
             data = json.loads(content)
-            normalized_dt = data.get("datetime")
-            delay_days = (normalized_dt.date() - reference_time.date()).days
+            
+            # Extract the delay information
+            has_delay = data.get("has_delay", False)
+            delay_days = data.get("delay_days", 0)
+            delay_type = data.get("delay_type", "default")
+            
+            # Ensure delay_days is non-negative
+            if delay_days < 0:
+                delay_days = 0
+                delay_type = "default"
 
             return {
                 "delay_days": delay_days,
-                "delay_type": "specific",
+                "delay_type": delay_type,
                 "original_text": message,
             }
 
