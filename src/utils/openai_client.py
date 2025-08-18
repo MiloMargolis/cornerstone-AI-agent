@@ -118,18 +118,15 @@ class OpenAIClient:
                 "chat_history": chat_history_str,
                 "database_status": database_status_str,
                 "phase_instructions": phase_instructions,
-                "incoming_message": incoming_message,
             },
         )
-
-        user_prompt = self.prompt_loader.render("user_prompt.tmpl", {})
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
+                    {"role": "user", "content": incoming_message},
                 ],
                 max_tokens=200,
                 temperature=0.5,
@@ -223,7 +220,6 @@ class OpenAIClient:
             data = json.loads(content)
             
             # Extract the delay information
-            has_delay = data.get("has_delay", False)
             delay_days = data.get("delay_days", 0)
             delay_type = data.get("delay_type", "default")
             

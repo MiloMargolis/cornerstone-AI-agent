@@ -83,10 +83,6 @@ def send_initial_outreach_message(lead: Dict[str, Any], phone_number: str) -> bo
     Returns True if successful, False otherwise.
     """
     try:
-        missing_fields = supabase_client.get_missing_fields(lead)
-        needs_tour_availability = supabase_client.needs_tour_availability(lead)
-        missing_optional = supabase_client.get_missing_optional_fields(lead)
-
         name = lead.get("name")
         first_name = extract_first_name(name)
         greeting = f"Hi {first_name}, " if first_name else "Hi, "
