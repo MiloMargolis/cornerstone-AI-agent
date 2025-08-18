@@ -31,12 +31,27 @@ pip install -r requirements-dev.txt
 echo "🌍 Setting up test environment variables..."
 export TELNYX_API_KEY="test_key"
 export TELNYX_PHONE_NUMBER="+1234567890"
-export OPENAI_API_KEY="test_key"
 export SUPABASE_URL="https://test.supabase.co"
 export SUPABASE_KEY="test_key"
 export AGENT_PHONE_NUMBER="+1987654321"
 export OPENAI_MODEL="gpt-4o-mini"
 export MOCK_TELNX="1"
+
+# OpenAI API Key setup
+echo "🤖 Setting up OpenAI API key..."
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "⚠️  OPENAI_API_KEY not set in environment"
+    echo "   To run integration tests with real OpenAI API, set your key:"
+    echo "   export OPENAI_API_KEY='your_openai_api_key_here'"
+    echo "   Or add it to your .env file"
+    echo ""
+    echo "   For now, using test key for mocked tests only..."
+    export OPENAI_API_KEY="test_key"
+    SKIP_INTEGRATION_TESTS=true
+else
+    echo "✅ OpenAI API key found in environment"
+    SKIP_INTEGRATION_TESTS=false
+fi
 
 # Run linting first
 echo "🔍 Running code linting..."
@@ -58,8 +73,8 @@ bandit -r src/ || echo "⚠️  Security issues found"
 echo "  → Safety dependency vulnerability check..."
 safety scan --file src/requirements.txt || echo "⚠️  Vulnerable dependencies found"
 
-# Run tests
-echo "🧪 Running unit tests..."
+# Run unit tests (mocked)
+echo "🧪 Running unit tests (mocked)..."
 echo "  → Testing app.py (SMS Handler)..."
 python -m pytest tests/test_app.py -v --cov=src.app --cov-report=term-missing
 
@@ -72,10 +87,43 @@ python -m pytest tests/test_outreach_handler.py -v --cov=src.outreach_handler --
 echo "  → Testing utility modules..."
 python -m pytest tests/test_utils/ -v --cov=src.utils --cov-report=term-missing
 
+# Run integration tests (real OpenAI API)
+if [ "$SKIP_INTEGRATION_TESTS" = false ]; then
+    echo "🤖 Running OpenAI integration tests (real API)..."
+    echo "  → Testing extract_lead_info function..."
+    python -m pytest tests/test_openai_integration.py::TestOpenAIIntegration::test_extract_lead_info_complete_information -v -s
+    
+    echo "  → Testing generate_response function..."
+    python -m pytest tests/test_openai_integration.py::TestOpenAIIntegration::test_generate_response_initial_contact -v -s
+    
+    echo "  → Testing robotic language detection..."
+    python -m pytest tests/test_openai_integration.py::TestOpenAIIntegration::test_generate_response_no_robotic_confirmation -v -s
+    
+    echo "  → Running all integration tests..."
+    python -m pytest tests/test_openai_integration.py -v -s --tb=short
+else
+    echo "⏭️  Skipping OpenAI integration tests (no API key)"
+    echo "   To run integration tests, set OPENAI_API_KEY environment variable"
+fi
+
 # Generate overall coverage report
 echo "📊 Generating coverage report..."
 python -m pytest tests/ --cov=src --cov-report=html --cov-report=term
 
 echo ""
-echo "✅ Tests completed! Check htmlcov/index.html for detailed coverage report."
+echo "✅ Tests completed!"
+echo "📊 Check htmlcov/index.html for detailed coverage report."
+
+if [ "$SKIP_INTEGRATION_TESTS" = true ]; then
+    echo ""
+    echo "🎉 To run integration tests with real OpenAI API:"
+    echo "   1. Get your OpenAI API key from https://platform.openai.com/api-keys"
+    echo "   2. Set the environment variable:"
+    echo "      export OPENAI_API_KEY='your_key_here'"
+    echo "   3. Run the script again"
+    echo ""
+    echo "   Or add it to your .env file:"
+    echo "      OPENAI_API_KEY=your_key_here"
+fi
+
 echo "🎉 All done!"

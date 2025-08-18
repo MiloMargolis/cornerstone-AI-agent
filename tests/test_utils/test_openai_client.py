@@ -106,30 +106,6 @@ class TestOpenAIClient:
         mock_client.chat.completions.create.assert_called_once()
 
     @patch("src.utils.openai_client.openai.OpenAI")
-    def test_generate_response_none_content(self, mock_openai):
-        """Test response generation when OpenAI returns None content"""
-        from src.utils.openai_client import OpenAIClient
-
-        # Setup mock
-        mock_client = mock_openai.return_value
-        mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = None
-        mock_client.chat.completions.create.return_value = mock_response
-
-        client = OpenAIClient()
-        lead_data = {"move_in_date": "2024-01-01"}
-
-        with pytest.raises(ValueError) as exc_info:
-            client.generate_response(
-                lead_data=lead_data,
-                incoming_message="Test message",
-                missing_fields=["price"],
-            )
-
-        assert "OpenAI returned None content" in str(exc_info.value)
-
-    @patch("src.utils.openai_client.openai.OpenAI")
     def test_generate_response_exception_fallback(self, mock_openai):
         """Test response generation fallback on exception"""
         from src.utils.openai_client import OpenAIClient

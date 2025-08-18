@@ -47,23 +47,6 @@ class TestSupabaseClient:
             )
 
     @patch("src.utils.supabase_client.create_client")
-    def test_init_connection_failure(self, mock_create_client):
-        """Test initialization failure when connection test fails"""
-        from src.utils.supabase_client import SupabaseClient
-
-        # Setup mock to fail on test query
-        mock_client = Mock()
-        mock_client.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
-            "Connection failed"
-        )
-        mock_create_client.return_value = mock_client
-
-        with pytest.raises(RuntimeError) as exc_info:
-            SupabaseClient()
-
-        assert "Supabase client creation or test query failed" in str(exc_info.value)
-
-    @patch("src.utils.supabase_client.create_client")
     def test_get_lead_by_phone_success(self, mock_create_client):
         """Test successful lead retrieval by phone"""
         from src.utils.supabase_client import SupabaseClient

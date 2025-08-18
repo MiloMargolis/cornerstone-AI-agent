@@ -216,13 +216,13 @@ class OpenAIClient:
             content = resp.choices[0].message.content
             if not content:
                 raise ValueError("OpenAI returned empty content")
-            
+
             data = json.loads(content)
-            
+
             # Extract the delay information
             delay_days = data.get("delay_days", 0)
             delay_type = data.get("delay_type", "default")
-            
+
             # Ensure delay_days is non-negative
             if delay_days < 0:
                 delay_days = 0

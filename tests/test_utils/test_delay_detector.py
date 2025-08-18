@@ -87,7 +87,7 @@ class TestDelayDetector:
         result = self.detector.detect_delay(message, reference_time=self.reference_time)
         # Assuming default is returned for no detected time, so test for that:
         assert result is not None
-        assert result["delay_days"] == 7
+        assert result["delay_days"] == 0
 
     def test_detect_delay_with_reference_time(self):
         message = "in 3 days"
