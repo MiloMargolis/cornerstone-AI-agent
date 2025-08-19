@@ -87,7 +87,7 @@ def send_initial_outreach_message(lead: Dict[str, Any], phone_number: str) -> bo
         first_name = extract_first_name(name)
         greeting = f"Hi {first_name}, " if first_name else "Hi, "
         response = (
-            f"{greeting}my name is Josh from Cornerstone Real Estate, I saw you were looking for apartments in Boston. "
+            f"{greeting}my name's Paloma from Cornerstone Real Estate, I saw you were looking for apartments in Boston. "
             "To get started, what is your price range and preferred neighborhoods?"
         )
 

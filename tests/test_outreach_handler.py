@@ -128,7 +128,7 @@ class TestOutreachHandler:
         call_args = mock_send_sms.call_args
         assert call_args[0][0] == "+1234567890"
         assert "Hi John" in call_args[0][1]
-        assert "Josh from Cornerstone Real Estate" in call_args[0][1]
+        assert "Paloma from Cornerstone Real Estate" in call_args[0][1]
 
     @patch("src.outreach_handler.supabase_client")
     @patch("src.outreach_handler.telnyx_client.send_sms")
@@ -147,7 +147,7 @@ class TestOutreachHandler:
         assert result is True
         call_args = mock_send_sms.call_args
         assert not call_args[0][1].startswith("Hi ")
-        assert "my name is Josh" in call_args[0][1]
+        assert "my name is Paloma" in call_args[0][1]
 
     @patch("src.outreach_handler.check_if_phone_number_exists")
     @patch("src.outreach_handler.call_create_lead")
