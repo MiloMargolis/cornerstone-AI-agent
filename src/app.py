@@ -147,16 +147,8 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
 
-        # Check for delay requests
-        delay_info = delay_detector.detect_delay_request(message)
-        if delay_info:
-            # Pause follow-ups until the requested time
-            delay_until = delay_detector.calculate_delay_until(delay_info)
-            supabase_client.pause_follow_up_until(lead_phone, delay_until)
-            ai_response = _generate_delay_response(delay_info)
-
         # Check if conversation is already complete (tour_ready = True)
-        elif lead.get("tour_ready", False):
+        if lead.get("tour_ready", False):
             # Conversation is complete - stay completely silent
             print(
                 f"Lead {lead_phone} is tour_ready - staying silent (no response sent)"
@@ -164,6 +156,7 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             return "SILENT_TOUR_READY"  # Return early, no SMS sent
 
         # Check if tour availability was just provided - trigger manager response
+        # This should happen BEFORE delay detection to avoid false positives
         elif (
             extracted_info.get("tour_availability")
             and not lead.get("tour_availability", "").strip()
@@ -191,8 +184,16 @@ def process_lead_message(lead_phone: str, message: str) -> str:
             else:
                 print("No AGENT_PHONE_NUMBER configured - skipping agent notification")
 
-            ai_response = "Perfect! I have all the information I need. I'll get my teammate  to set up an exact time with you for the tour. They'll be in touch soon."
+            ai_response = "Perfect! I have all the information I need. I'll get my teammate to set up an exact time with you for the tour. They'll be in touch soon."
             print(f"Lead {lead_phone} completed qualification - marked as tour_ready")
+        
+        # Check for delay requests (AFTER tour availability check to avoid false positives)
+        elif delay_detector.detect_delay_request(message):
+            delay_info = delay_detector.detect_delay_request(message)
+            # Pause follow-ups until the requested time
+            delay_until = delay_detector.calculate_delay_until(delay_info)
+            supabase_client.pause_follow_up_until(lead_phone, delay_until)
+            ai_response = _generate_delay_response(delay_info)
         else:
             # Determine what fields are still missing and conversation phase
             missing_fields = supabase_client.get_missing_fields(lead)
