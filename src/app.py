@@ -147,6 +147,9 @@ def process_lead_message(lead_phone: str, message: str) -> str:
         # Update message history
         supabase_client.add_message_to_history(lead_phone, message, "lead")
 
+        # Refresh lead data to include the updated conversation history
+        lead = supabase_client.get_lead_by_phone(lead_phone)
+
         # Check if conversation is already complete (tour_ready = True)
         if lead.get("tour_ready", False):
             # Conversation is complete - stay completely silent
@@ -166,6 +169,9 @@ def process_lead_message(lead_phone: str, message: str) -> str:
                 f"Lead {lead_phone} provided tour availability - marking as tour_ready"
             )
             supabase_client.set_tour_ready(lead_phone)
+
+            # Refresh lead data after setting tour_ready
+            lead = supabase_client.get_lead_by_phone(lead_phone)
 
             # Send notification to agent
             agent_phone = os.getenv("AGENT_PHONE_NUMBER")

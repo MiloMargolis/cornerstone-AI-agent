@@ -115,8 +115,8 @@ class OpenAIClient:
             "qualification_system.tmpl",
             {
                 "phase": phase,
-                "chat_history": chat_history_str,
-                "database_status": database_status_str,
+                "chat_history_str": chat_history_str,
+                "database_status_str": database_status_str,
                 "phase_instructions": phase_instructions,
             },
         )
