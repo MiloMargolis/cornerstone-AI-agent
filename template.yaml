@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: CornerStone AI SMS Follow-Up Assistant
+Description: CornerStone AI SMS Follow-Up Assistant (Refactored Architecture)
 
 Parameters:
   TelnyxApiKey:
@@ -37,11 +37,12 @@ Globals:
     Runtime: python3.11
 
 Resources:
-  SMSHandlerFunction:
+  # Main webhook handler for processing SMS messages
+  WebhookHandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: app.lambda_handler
+      Handler: handlers.webhook_handler.lambda_handler
       Runtime: python3.11
       Environment:
         Variables:
@@ -59,11 +60,12 @@ Resources:
             Path: /webhook
             Method: post
 
+  # Scheduled follow-up handler
   FollowUpHandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: follow_up_handler.lambda_handler
+      Handler: handlers.follow_up_handler.lambda_handler
       Runtime: python3.11
       Timeout: 300
       Environment:
@@ -82,11 +84,12 @@ Resources:
             Schedule: rate(30 minutes)
             Description: "Run follow-up handler every 30 minutes"
 
+  # Manual outreach API handler
   OutreachHandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: outreach_handler.lambda_handler
+      Handler: handlers.outreach_handler.lambda_handler
       Runtime: python3.11
       Timeout: 60
       Environment:
@@ -110,9 +113,9 @@ Outputs:
     Description: "API Gateway endpoint URL for Telnyx webhook"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook"
   
-  SMSHandlerFunction:
-    Description: "SMS Handler Lambda Function ARN"
-    Value: !GetAtt SMSHandlerFunction.Arn
+  WebhookHandlerFunction:
+    Description: "Webhook Handler Lambda Function ARN"
+    Value: !GetAtt WebhookHandlerFunction.Arn
 
   FollowUpHandlerFunction:
     Description: "Follow-up Handler Lambda Function ARN"
@@ -120,4 +123,4 @@ Outputs:
 
   OutreachHandlerFunction:
     Description: "Outreach Handler Lambda Function ARN"
-    Value: !GetAtt OutreachHandlerFunction.Arn 
+    Value: !GetAtt OutreachHandlerFunction.Arn
