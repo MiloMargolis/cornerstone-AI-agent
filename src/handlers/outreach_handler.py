@@ -11,7 +11,7 @@ from src.middleware.error_handler import ErrorHandler
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Lambda handler for the outreach handler using the new refactored architecture
+    Lambda handler for the outreach handler
     """
     try:
         # Initialize services from container

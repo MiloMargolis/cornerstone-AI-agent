@@ -22,8 +22,7 @@ error_handler = None
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Main Lambda handler for processing Telnyx webhook events
-    Uses the new refactored architecture with dependency injection
+    Main Lambda handler for processing Telnyx webhook events with dependency injection
     """
     global event_processor, error_handler
     

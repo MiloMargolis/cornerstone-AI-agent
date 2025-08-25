@@ -12,7 +12,6 @@ from src.config.follow_up_config import FOLLOW_UP_SCHEDULE, FOLLOW_UP_MESSAGES, 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Follow-up handler that runs on a schedule to send follow-up messages
-    Uses the new refactored architecture
     """
     try:
         # Initialize services from container
