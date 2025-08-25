@@ -49,9 +49,7 @@ class TestLeadRepository:
             "amenities": "Parking",
             "tour_ready": True,
             "follow_up_count": 3,
-            "follow_up_stage": "final",
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "follow_up_stage": "final"
         }
         
         # Mock Supabase response
@@ -166,9 +164,7 @@ class TestLeadRepository:
             "phone": phone,
             "name": "Jane Doe",
             "email": "jane@example.com",
-            "price": "2500",
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "price": "2500"
         }]
         
         self.mock_client.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_response
@@ -309,9 +305,7 @@ class TestLeadRepository:
             "name": "John Doe",
             "next_follow_up_time": now.isoformat(),
             "tour_ready": False,
-            "follow_up_paused_until": None,
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "follow_up_paused_until": None
         }
         
         # Mock Supabase response
@@ -340,9 +334,7 @@ class TestLeadRepository:
             "name": "John Doe",
             "next_follow_up_time": now.isoformat(),
             "tour_ready": False,
-            "follow_up_paused_until": future_time.isoformat(),
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
+            "follow_up_paused_until": future_time.isoformat()
         }
         
         # Mock Supabase response

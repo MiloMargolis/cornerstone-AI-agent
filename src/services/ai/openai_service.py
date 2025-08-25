@@ -3,10 +3,10 @@ import openai
 import json
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
-from src.services.interfaces import IAIService
-from src.models.lead import Lead
-from src.utils.constants import PHASE_CONFIGS, REQUIRED_FIELDS, OPTIONAL_FIELDS
-from src.utils.prompt_loader import PromptLoader
+from services.interfaces import IAIService
+from models.lead import Lead
+from utils.constants import PHASE_CONFIGS, REQUIRED_FIELDS, OPTIONAL_FIELDS
+from utils.prompt_loader import PromptLoader
 
 
 class OpenAIService(IAIService):

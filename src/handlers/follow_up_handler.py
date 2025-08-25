@@ -3,10 +3,10 @@ import json
 from typing import Dict, Any
 from datetime import datetime
 
-from src.core.container import container
-from src.services.interfaces import ILeadRepository, IMessagingService
-from src.models.lead import Lead
-from src.config.follow_up_config import FOLLOW_UP_SCHEDULE, FOLLOW_UP_MESSAGES, MAX_FOLLOW_UPS
+from core.container import container
+from services.interfaces import ILeadRepository, IMessagingService
+from models.lead import Lead
+from config.follow_up_config import FOLLOW_UP_SCHEDULE, FOLLOW_UP_MESSAGES, MAX_FOLLOW_UPS
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

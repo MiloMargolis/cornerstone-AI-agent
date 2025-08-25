@@ -17,8 +17,6 @@ class TestLead:
         assert lead.status == LeadStatus.NEW
         assert lead.follow_up_count == 0
         assert lead.follow_up_stage == "scheduled"
-        assert lead.created_at is not None
-        assert lead.updated_at is not None
     
     def test_lead_creation_with_all_fields(self):
         """Test creating a lead with all fields"""
@@ -257,8 +255,6 @@ class TestLead:
         assert lead_dict["rental_urgency"] == "High"
         assert lead_dict["boston_rental_experience"] == "First time"
         assert lead_dict["chat_history"] == "Test conversation"
-        assert lead_dict["created_at"] is not None
-        assert lead_dict["updated_at"] is not None
     
     def test_to_dict_with_none_values(self):
         """Test converting lead to dictionary with None values"""
@@ -298,8 +294,6 @@ class TestLead:
             "rental_urgency": "High",
             "boston_rental_experience": "First time",
             "chat_history": "Test conversation",
-            "created_at": datetime.now(),
-            "updated_at": datetime.now(),
             "last_contacted": datetime.now()
         }
         
@@ -321,8 +315,6 @@ class TestLead:
         assert lead.rental_urgency == "High"
         assert lead.boston_rental_experience == "First time"
         assert lead.chat_history == "Test conversation"
-        assert lead.created_at is not None
-        assert lead.updated_at is not None
         assert lead.last_contacted is not None
     
     def test_from_dict_with_missing_fields(self):

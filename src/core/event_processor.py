@@ -1,7 +1,7 @@
 from typing import Dict, Any
-from src.services.interfaces import IEventProcessor
-from src.models.webhook import WebhookEvent
-from src.core.lead_processor import LeadProcessor
+from services.interfaces import IEventProcessor
+from models.webhook import WebhookEvent
+from core.lead_processor import LeadProcessor
 
 
 class EventProcessor(IEventProcessor):

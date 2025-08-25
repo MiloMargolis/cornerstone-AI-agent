@@ -3,8 +3,8 @@ import openai
 import json
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-from src.services.interfaces import IDelayDetectionService
-from src.utils.prompt_loader import PromptLoader
+from services.interfaces import IDelayDetectionService
+from utils.prompt_loader import PromptLoader
 
 
 class DelayDetectionService(IDelayDetectionService):

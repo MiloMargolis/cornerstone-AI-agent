@@ -3,9 +3,9 @@ from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 
-from src.services.interfaces import ILeadRepository
-from src.models.lead import Lead
-from src.utils.constants import REQUIRED_FIELDS, OPTIONAL_FIELDS
+from services.interfaces import ILeadRepository
+from models.lead import Lead
+from utils.constants import REQUIRED_FIELDS, OPTIONAL_FIELDS
 
 
 class LeadRepository(ILeadRepository):
@@ -56,7 +56,6 @@ class LeadRepository(ILeadRepository):
         try:
             # Always update last_contacted timestamp
             updates["last_contacted"] = "now()"
-            updates["updated_at"] = datetime.now()
 
             response = (
                 self.client.table("leads").update(updates).eq("phone", phone).execute()

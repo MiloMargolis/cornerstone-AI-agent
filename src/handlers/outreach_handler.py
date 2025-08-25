@@ -3,10 +3,10 @@ import asyncio
 from typing import Dict, Any
 import json
 
-from src.core.container import container
-from src.services.interfaces import ILeadRepository, IMessagingService
-from src.models.lead import Lead
-from src.middleware.error_handler import ErrorHandler
+from core.container import container
+from services.interfaces import ILeadRepository, IMessagingService
+from models.lead import Lead
+from middleware.error_handler import ErrorHandler
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, List, Any
-from src.models.lead import Lead
-from src.models.webhook import WebhookEvent
+from models.lead import Lead
+from models.webhook import WebhookEvent
 
 
 class ILeadRepository(ABC):

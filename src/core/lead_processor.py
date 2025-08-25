@@ -1,13 +1,13 @@
 import os
 
-from src.services.interfaces import (
+from services.interfaces import (
     ILeadRepository,
     IMessagingService,
     IAIService,
     IDelayDetectionService,
 )
-from src.models.lead import Lead
-from src.config.follow_up_config import FOLLOW_UP_SCHEDULE
+from models.lead import Lead
+from config.follow_up_config import FOLLOW_UP_SCHEDULE
 
 
 class LeadProcessor:

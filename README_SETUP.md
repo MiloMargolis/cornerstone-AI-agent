@@ -76,7 +76,7 @@ Your `leads` table should already be created. Verify it has these columns:
    ```
    
    You'll be prompted to enter:
-   - Stack name (e.g., `cornerstone-sms-assistant`)
+   - Stack name (e.g., `sam-app`)
    - AWS region
    - Your API keys and configuration values
 
@@ -114,7 +114,7 @@ Your `leads` table should already be created. Verify it has these columns:
 
 3. **Check the logs:**
    ```bash
-   sam logs -n SMSHandlerFunction --stack-name cornerstone-sms-assistant --tail
+   sam logs -n SMSHandlerFunction --stack-name sam-app --tail
    ```
 
 ## Monitoring

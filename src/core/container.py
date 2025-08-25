@@ -1,12 +1,12 @@
 import os
 from typing import Dict, Any, Type
-from src.services.interfaces import (
+from services.interfaces import (
     ILeadRepository, IMessagingService, IAIService, 
     IDelayDetectionService, IEventProcessor
 )
-from src.services.database.lead_repository import LeadRepository
-from src.core.lead_processor import LeadProcessor
-from src.core.event_processor import EventProcessor
+from services.database.lead_repository import LeadRepository
+from core.lead_processor import LeadProcessor
+from core.event_processor import EventProcessor
 
 
 class ServiceContainer:
@@ -92,20 +92,20 @@ class ServiceContainer:
         """Create messaging service implementation"""
         # Check if we should use mock service
         if os.getenv("MOCK_TELNX", "0") == "1":
-            from src.services.messaging.telnyx_service import MockTelnyxService
+            from services.messaging.telnyx_service import MockTelnyxService
             return MockTelnyxService()
         else:
-            from src.services.messaging.telnyx_service import TelnyxService
+            from services.messaging.telnyx_service import TelnyxService
             return TelnyxService()
     
     def _create_ai_service(self) -> IAIService:
         """Create AI service implementation"""
-        from src.services.ai.openai_service import OpenAIService
+        from services.ai.openai_service import OpenAIService
         return OpenAIService()
     
     def _create_delay_detection_service(self) -> IDelayDetectionService:
         """Create delay detection service implementation"""
-        from src.services.delay_detection.delay_detection_service import DelayDetectionService
+        from services.delay_detection.delay_detection_service import DelayDetectionService
         return DelayDetectionService()
 
 

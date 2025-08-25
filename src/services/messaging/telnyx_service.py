@@ -1,7 +1,7 @@
 import os
 import telnyx
 from typing import Dict, Any
-from src.services.interfaces import IMessagingService
+from services.interfaces import IMessagingService
 
 
 class TelnyxService(IMessagingService):
@@ -16,6 +16,8 @@ class TelnyxService(IMessagingService):
         self.from_number = os.getenv("TELNYX_PHONE_NUMBER")
         if not self.from_number:
             raise ValueError("Missing TELNYX_PHONE_NUMBER environment variable")
+        
+        print(f"[DEBUG] TelnyxService initialized with from_number: {self.from_number}")
     
     async def send_sms(self, to: str, message: str) -> bool:
         """Send SMS message via Telnyx"""

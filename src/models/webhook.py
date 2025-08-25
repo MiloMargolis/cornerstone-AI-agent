@@ -9,6 +9,8 @@ class EventType(Enum):
     MESSAGE_SENT = "message.sent"
     MESSAGE_DELIVERED = "message.delivered"
     MESSAGE_FAILED = "message.failed"
+    MESSAGE_FINALIZED = "message.finalized"
+    MESSAGE_UPDATED = "message.updated"
 
 
 @dataclass
@@ -80,7 +82,7 @@ class WebhookEvent:
     
     def is_message_received(self) -> bool:
         """Check if this is a message received event"""
-        return self.event_type == EventType.MESSAGE_RECEIVED
+        return self.event_type in [EventType.MESSAGE_RECEIVED, EventType.MESSAGE_FINALIZED]
     
     def is_from_agent(self, agent_phone: str) -> bool:
         """Check if message is from the agent"""

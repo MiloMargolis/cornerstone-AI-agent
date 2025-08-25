@@ -3,10 +3,10 @@ import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-from src.core.container import container
-from src.core.event_processor import EventProcessor
-from src.models.webhook import WebhookEvent
-from src.middleware.error_handler import ErrorHandler
+from core.container import container
+from services.interfaces import IEventProcessor
+from models.webhook import WebhookEvent
+from middleware.error_handler import ErrorHandler
 
 
 # Initialize the service container
@@ -29,7 +29,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Initialize services if not already done
     if event_processor is None:
         initialize_services()
-        event_processor = container.resolve(EventProcessor)
+        event_processor = container.resolve(IEventProcessor)
         error_handler = ErrorHandler()
     
     try:
@@ -43,6 +43,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Create WebhookEvent from raw data
         try:
             webhook_event = WebhookEvent.from_telnyx_webhook(webhook_data)
+            print(f"[DEBUG] Successfully parsed webhook event: {webhook_event.event_type}")
+            print(f"[DEBUG] Message from: {webhook_event.payload.from_number}")
+            print(f"[DEBUG] Message to: {webhook_event.payload.to_numbers}")
+            print(f"[DEBUG] Message text: {webhook_event.payload.text[:50]}...")
         except ValueError as e:
             print(f"Invalid webhook data: {e}")
             return error_handler.handle_validation_error(str(e))
@@ -63,14 +67,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": json.dumps({"message": "Event ignored"})
             }
         
-        # Check if this message is from the agent (ignore if so)
+        # Check if this message is from the agent or Telnyx number (ignore if so)
         import os
         agent_phone = os.getenv("AGENT_PHONE_NUMBER")
+        telnyx_phone = os.getenv("TELNYX_PHONE_NUMBER")
+        
         if agent_phone and webhook_event.is_from_agent(agent_phone):
             print(f"Ignoring message from agent: {webhook_event.payload.from_number}")
             return {
                 "statusCode": 200,
                 "body": json.dumps({"message": "Agent message ignored"})
+            }
+        
+        if telnyx_phone and webhook_event.payload.from_number == telnyx_phone:
+            print(f"Ignoring message from Telnyx number: {webhook_event.payload.from_number}")
+            return {
+                "statusCode": 200,
+                "body": json.dumps({"message": "Telnyx message ignored"})
             }
         
         # Process the event

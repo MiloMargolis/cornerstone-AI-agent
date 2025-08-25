@@ -47,19 +47,12 @@ class Lead:
     
     # Metadata
     chat_history: str = ""
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     last_contacted: Optional[datetime] = None
     
     def __post_init__(self):
         """Validate and set defaults after initialization"""
         if not self.phone:
             raise ValueError("Phone number is required")
-        
-        if not self.created_at:
-            self.created_at = datetime.now()
-        
-        self.updated_at = datetime.now()
     
     @property
     def is_qualified(self) -> bool:
@@ -105,19 +98,26 @@ class Lead:
             "tour_ready": self.tour_ready,
             "follow_up_count": self.follow_up_count,
             "follow_up_stage": self.follow_up_stage,
-            "next_follow_up_time": self.next_follow_up_time,
-            "follow_up_paused_until": self.follow_up_paused_until,
+            "next_follow_up_time": self.next_follow_up_time.isoformat() if self.next_follow_up_time else None,
+            "follow_up_paused_until": self.follow_up_paused_until.isoformat() if self.follow_up_paused_until else None,
             "rental_urgency": self.rental_urgency or "",
             "boston_rental_experience": self.boston_rental_experience or "",
             "chat_history": self.chat_history,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "last_contacted": self.last_contacted,
+            "last_contacted": self.last_contacted.isoformat() if self.last_contacted else None,
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Lead":
         """Create Lead instance from dictionary"""
+        # Helper function to parse datetime strings
+        def parse_datetime(dt_str):
+            if dt_str and isinstance(dt_str, str):
+                try:
+                    return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+                except ValueError:
+                    return None
+            return dt_str
+        
         return cls(
             phone=data["phone"],
             name=data.get("name"),
@@ -132,12 +132,10 @@ class Lead:
             tour_ready=data.get("tour_ready", False),
             follow_up_count=data.get("follow_up_count", 0),
             follow_up_stage=data.get("follow_up_stage", "scheduled"),
-            next_follow_up_time=data.get("next_follow_up_time"),
-            follow_up_paused_until=data.get("follow_up_paused_until"),
+            next_follow_up_time=parse_datetime(data.get("next_follow_up_time")),
+            follow_up_paused_until=parse_datetime(data.get("follow_up_paused_until")),
             rental_urgency=data.get("rental_urgency"),
             boston_rental_experience=data.get("boston_rental_experience"),
             chat_history=data.get("chat_history", ""),
-            created_at=data.get("created_at"),
-            updated_at=data.get("updated_at"),
-            last_contacted=data.get("last_contacted"),
+            last_contacted=parse_datetime(data.get("last_contacted")),
         )
