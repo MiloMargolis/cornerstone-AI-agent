@@ -1,6 +1,6 @@
 import pytest
 import json
-from unittest.mock import patch
+from unittest.mock import Mock
 from src.middleware.error_handler import ErrorHandler
 
 
@@ -213,44 +213,53 @@ class TestErrorHandler:
         assert body["message"] == "Failed to process message.received webhook"
         assert body["type"] == "WEBHOOK_PROCESSING_ERROR"
     
-    @patch('src.middleware.error_handler.logging')
-    def test_log_error(self, mock_logging):
+    def test_log_error(self):
         """Test logging errors"""
         error = Exception("Test error")
         context = {"user_id": "123", "action": "login"}
         
+        # Mock the logger instance directly on the error handler
+        mock_logger = Mock()
+        self.error_handler.logger = mock_logger
+        
         self.error_handler.log_error(error, context)
         
-        mock_logging.getLogger.return_value.error.assert_called_once()
-        call_args = mock_logging.getLogger.return_value.error.call_args
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args
         assert "Test error" in call_args[0][0]
         assert call_args[1]["extra"]["error_type"] == "Exception"
         assert call_args[1]["extra"]["context"] == context
         assert call_args[1]["exc_info"] is True
     
-    @patch('src.middleware.error_handler.logging')
-    def test_log_warning(self, mock_logging):
+    def test_log_warning(self):
         """Test logging warnings"""
         message = "Warning message"
         context = {"field": "email"}
         
+        # Mock the logger instance directly on the error handler
+        mock_logger = Mock()
+        self.error_handler.logger = mock_logger
+        
         self.error_handler.log_warning(message, context)
         
-        mock_logging.getLogger.return_value.warning.assert_called_once()
-        call_args = mock_logging.getLogger.return_value.warning.call_args
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args
         assert call_args[0][0] == message
         assert call_args[1]["extra"]["context"] == context
     
-    @patch('src.middleware.error_handler.logging')
-    def test_log_info(self, mock_logging):
+    def test_log_info(self):
         """Test logging info messages"""
         message = "Info message"
         context = {"user_id": "123"}
         
+        # Mock the logger instance directly on the error handler
+        mock_logger = Mock()
+        self.error_handler.logger = mock_logger
+        
         self.error_handler.log_info(message, context)
         
-        mock_logging.getLogger.return_value.info.assert_called_once()
-        call_args = mock_logging.getLogger.return_value.info.call_args
+        mock_logger.info.assert_called_once()
+        call_args = mock_logger.info.call_args
         assert call_args[0][0] == message
         assert call_args[1]["extra"]["context"] == context
     

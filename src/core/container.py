@@ -62,11 +62,15 @@ class ServiceContainer:
         # Lead processor depends on all other services
         lead_repository = self.resolve(ILeadRepository)
         
-        # For now, we'll create placeholder services
-        # In a real implementation, you would create proper implementations
+        # Create and register services
         messaging_service = self._create_messaging_service()
         ai_service = self._create_ai_service()
         delay_detection_service = self._create_delay_detection_service()
+        
+        # Register services as singletons so they can be resolved by the container
+        self.register_singleton(IMessagingService, messaging_service)
+        self.register_singleton(IAIService, ai_service)
+        self.register_singleton(IDelayDetectionService, delay_detection_service)
         
         lead_processor = LeadProcessor(
             lead_repository=lead_repository,

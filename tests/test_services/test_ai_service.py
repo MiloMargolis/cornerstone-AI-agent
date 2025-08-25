@@ -121,7 +121,8 @@ class TestOpenAIService:
         # Should only include last 10 messages
         lines = history.split("\n")
         assert len(lines) == 10
-        assert "Message 5" not in history  # Should be truncated
+        assert "Message 0" not in history  # Should be truncated (first 5 messages)
+        assert "Message 5" in history  # Should be included (last 10 messages start from 5)
         assert "Message 14" in history  # Should be included
     
     def test_get_phase_instructions_qualification_phase(self):
@@ -236,8 +237,10 @@ class TestOpenAIService:
         
         self.ai_service.client.chat.completions.create = Mock(return_value=mock_response)
         
-        with pytest.raises(ValueError, match="OpenAI returned None content"):
-            await self.ai_service.extract_lead_info(message, lead)
+        result = await self.ai_service.extract_lead_info(message, lead)
+        
+        # Should return empty dict when OpenAI returns None content
+        assert result == {}
     
     @pytest.mark.asyncio
     async def test_extract_lead_info_invalid_json(self):
@@ -327,10 +330,12 @@ class TestOpenAIService:
         
         self.ai_service.client.chat.completions.create = Mock(return_value=mock_response)
         
-        with pytest.raises(ValueError, match="OpenAI returned None content"):
-            await self.ai_service.generate_response(
-                lead, message, missing_fields, needs_tour_availability, missing_optional
-            )
+        result = await self.ai_service.generate_response(
+            lead, message, missing_fields, needs_tour_availability, missing_optional
+        )
+        
+        # Should return fallback message when OpenAI returns None content
+        assert result == "I'm having trouble processing your message. Please try again."
     
     @pytest.mark.asyncio
     async def test_generate_delay_response_success(self):

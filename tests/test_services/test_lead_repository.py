@@ -23,13 +23,13 @@ class TestLeadRepository:
     
     def test_init_missing_url(self):
         """Test initialization with missing Supabase URL"""
-        with patch.dict('os.environ', {'SUPABASE_KEY': 'test-key'}):
+        with patch.dict('os.environ', {'SUPABASE_KEY': 'test-key'}, clear=True):
             with pytest.raises(ValueError, match="Missing SUPABASE_URL or SUPABASE_KEY environment variables"):
                 LeadRepository()
     
     def test_init_missing_key(self):
         """Test initialization with missing Supabase key"""
-        with patch.dict('os.environ', {'SUPABASE_URL': 'https://test.supabase.co'}):
+        with patch.dict('os.environ', {'SUPABASE_URL': 'https://test.supabase.co'}, clear=True):
             with pytest.raises(ValueError, match="Missing SUPABASE_URL or SUPABASE_KEY environment variables"):
                 LeadRepository()
     

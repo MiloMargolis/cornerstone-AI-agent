@@ -344,8 +344,8 @@ class TestLead:
     
     def test_lead_status_enum(self):
         """Test LeadStatus enum values"""
-        assert LeadStatus.NEW == "new"
-        assert LeadStatus.QUALIFYING == "qualifying"
-        assert LeadStatus.TOUR_SCHEDULING == "tour_scheduling"
-        assert LeadStatus.TOUR_READY == "tour_ready"
-        assert LeadStatus.COMPLETE == "complete"
+        assert LeadStatus.NEW.value == "new"
+        assert LeadStatus.QUALIFYING.value == "qualifying"
+        assert LeadStatus.TOUR_SCHEDULING.value == "tour_scheduling"
+        assert LeadStatus.TOUR_READY.value == "tour_ready"
+        assert LeadStatus.COMPLETE.value == "complete"

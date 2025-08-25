@@ -173,10 +173,10 @@ class TestWebhookEvent:
     
     def test_event_type_enum(self):
         """Test EventType enum values"""
-        assert EventType.MESSAGE_RECEIVED == "message.received"
-        assert EventType.MESSAGE_SENT == "message.sent"
-        assert EventType.MESSAGE_DELIVERED == "message.delivered"
-        assert EventType.MESSAGE_FAILED == "message.failed"
+        assert EventType.MESSAGE_RECEIVED.value == "message.received"
+        assert EventType.MESSAGE_SENT.value == "message.sent"
+        assert EventType.MESSAGE_DELIVERED.value == "message.delivered"
+        assert EventType.MESSAGE_FAILED.value == "message.failed"
     
     def test_webhook_event_creation_direct(self):
         """Test creating WebhookEvent directly"""
