@@ -89,6 +89,7 @@ class OpenAIService(IAIService):
         """Extract lead information from message"""
         try:
             current_data = lead.to_dict()
+            print(f"[DEBUG] Current lead data before extraction: {current_data}")
 
             context = {
                 "move_in_date": current_data.get("move_in_date", "EMPTY"),
@@ -106,6 +107,7 @@ class OpenAIService(IAIService):
             }
 
             system_prompt = self.prompt_loader.render("extraction.tmpl", context)
+            print(f"[DEBUG] Extraction prompt: {system_prompt}")
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -147,8 +149,13 @@ class OpenAIService(IAIService):
         try:
             lead_data = lead.to_dict()
 
+            print(f"[DEBUG] Lead data at response generation: {lead_data}")
+            print(f"[DEBUG] Missing fields: {missing_fields}")
+            print(f"[DEBUG] Missing optional: {missing_optional}")
+
             # Get database status
             database_status = self._get_database_status(lead_data)
+            print(f"[DEBUG] Database status: {database_status}")
 
             # Get chat history
             chat_history = self._get_chat_history(lead_data)
@@ -170,6 +177,8 @@ class OpenAIService(IAIService):
             system_prompt = self.prompt_loader.render(
                 "qualification_system.tmpl", context
             )
+
+            print(f"[DEBUG] Qualification prompt: {system_prompt}")
 
             response = self.client.chat.completions.create(
                 model=self.model,
