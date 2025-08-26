@@ -35,7 +35,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Parse the incoming webhook
         body = json.loads(event.get("body", "{}"))
-        print(f"Received webhook: {json.dumps(body, indent=2)}")
+        # print(f"Received webhook: {json.dumps(body, indent=2)}")
 
         # Extract webhook data
         webhook_data = body.get("data", {})
