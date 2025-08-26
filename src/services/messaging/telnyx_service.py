@@ -6,7 +6,7 @@ from services.interfaces import IMessagingService
 
 class TelnyxService(IMessagingService):
     """Telnyx messaging service implementation - migrated from legacy client"""
-    
+
     def __init__(self):
         api_key = os.getenv("TELNYX_API_KEY")
         if not api_key:
@@ -16,9 +16,9 @@ class TelnyxService(IMessagingService):
         self.from_number = os.getenv("TELNYX_PHONE_NUMBER")
         if not self.from_number:
             raise ValueError("Missing TELNYX_PHONE_NUMBER environment variable")
-        
+
         print(f"[DEBUG] TelnyxService initialized with from_number: {self.from_number}")
-    
+
     async def send_sms(self, to: str, message: str) -> bool:
         """Send SMS message via Telnyx"""
         try:
@@ -26,13 +26,13 @@ class TelnyxService(IMessagingService):
                 from_=self.from_number, to=to, text=message
             )
 
-            print(f"SMS sent successfully to {to}: {response.id}")
+            print(f"SMS sent successfully to {to}: {response}")
             return True
 
         except Exception as e:
             print(f"Error sending SMS to {to}: {e}")
             return False
-    
+
     async def send_agent_notification(self, agent_phone: str, message: str) -> bool:
         """Send notification to agent"""
         try:
@@ -44,7 +44,7 @@ class TelnyxService(IMessagingService):
 
 class MockTelnyxService(IMessagingService):
     """Mock Telnyx service for testing"""
-    
+
     def __init__(self):
         self.from_number = os.getenv("TELNYX_PHONE_NUMBER", "+1234567890")
 

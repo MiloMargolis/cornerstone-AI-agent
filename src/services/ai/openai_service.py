@@ -11,7 +11,7 @@ from utils.prompt_loader import PromptLoader
 
 class OpenAIService(IAIService):
     """OpenAI service implementation - migrated from legacy client"""
-    
+
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -20,7 +20,7 @@ class OpenAIService(IAIService):
         self.client = openai.OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.prompt_loader = PromptLoader()
-    
+
     def _get_database_status(self, lead_data: Dict) -> str:
         """Generate a string representing the database status of required and optional fields"""
         database_status = []
@@ -84,12 +84,12 @@ class OpenAIService(IAIService):
             phase = PHASE_CONFIGS["COMPLETE"].name
             phase_instructions = PHASE_CONFIGS["COMPLETE"].instructions
         return phase, phase_instructions
-    
+
     async def extract_lead_info(self, message: str, lead: Lead) -> Dict[str, Any]:
         """Extract lead information from message"""
         try:
             current_data = lead.to_dict()
-            
+
             context = {
                 "move_in_date": current_data.get("move_in_date", "EMPTY"),
                 "price": current_data.get("price", "EMPTY"),
@@ -124,39 +124,40 @@ class OpenAIService(IAIService):
             if result_text is None:
                 raise ValueError("OpenAI returned None content")
             result_text = result_text.strip()
-            print(f"[DEBUG] Extract attempt for message '{message}': {result_text}")
 
             extracted_info = json.loads(result_text)
-            print(f"[DEBUG] Successfully extracted: {extracted_info}")
+            print(
+                f"[DEBUG] Extract attempt for message '{message}': {result_text} | Successfully extracted: {extracted_info}"
+            )
             return extracted_info
 
         except Exception as e:
             print(f"[ERROR] Failed to extract lead info from '{message}': {e}")
             return {}
-    
+
     async def generate_response(
         self,
         lead: Lead,
         message: str,
         missing_fields: List[str],
         needs_tour_availability: bool = False,
-        missing_optional: Optional[List[str]] = None
+        missing_optional: Optional[List[str]] = None,
     ) -> str:
         """Generate AI response based on lead state"""
         try:
             lead_data = lead.to_dict()
-            
+
             # Get database status
             database_status = self._get_database_status(lead_data)
-            
+
             # Get chat history
             chat_history = self._get_chat_history(lead_data)
-            
+
             # Get phase instructions
             phase, phase_instructions = self._get_phase_instructions(
                 needs_tour_availability, missing_fields, missing_optional
             )
-            
+
             # Build the prompt
             context = {
                 "database_status": database_status,
@@ -165,9 +166,11 @@ class OpenAIService(IAIService):
                 "phase_instructions": phase_instructions,
                 "incoming_message": message,
             }
-            
-            system_prompt = self.prompt_loader.render("qualification_system.tmpl", context)
-            
+
+            system_prompt = self.prompt_loader.render(
+                "qualification_system.tmpl", context
+            )
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -177,17 +180,17 @@ class OpenAIService(IAIService):
                 max_tokens=300,
                 temperature=0.7,
             )
-            
+
             result_text = response.choices[0].message.content
             if result_text is None:
                 raise ValueError("OpenAI returned None content")
-            
+
             return result_text.strip()
-            
+
         except Exception as e:
             print(f"Error generating AI response: {e}")
             return "I'm having trouble processing your message. Please try again."
-    
+
     async def generate_delay_response(self, delay_info: Dict[str, Any]) -> str:
         """Generate response for delay requests"""
         try:
@@ -202,7 +205,7 @@ class OpenAIService(IAIService):
             else:
                 months = delay_days // 30
                 time_phrase = f"in {months} month{'s' if months > 1 else ''}"
-            
+
             return f"No problem! I'll reach out {time_phrase}. Feel free to message me anytime if you have questions before then."
         except Exception as e:
             print(f"Error generating delay response: {e}")

@@ -51,19 +51,22 @@ class LeadProcessor:
                 )
                 if updated_lead:
                     lead = updated_lead
-                    print("[DEBUG] Lead updated successfully. Current lead data:")
-                    for field in [
-                        "move_in_date",
-                        "price",
-                        "beds",
-                        "baths",
-                        "location",
-                        "amenities",
-                        "tour_availability",
-                        "tour_ready",
-                    ]:
-                        value = getattr(lead, field, "EMPTY")
-                        print(f"  {field}: '{value}'")
+                    field_values = {
+                        field: getattr(lead, field, "EMPTY")
+                        for field in [
+                            "move_in_date",
+                            "price",
+                            "beds",
+                            "baths",
+                            "location",
+                            "amenities",
+                            "tour_availability",
+                            "tour_ready",
+                        ]
+                    }
+                    print(
+                        f"[DEBUG] Lead updated successfully. Current lead data: {field_values}"
+                    )
                 else:
                     print(
                         f"[ERROR] Failed to update lead with extracted info: {extracted_info}"
@@ -151,11 +154,12 @@ class LeadProcessor:
                 needs_tour_availability = (
                     await self.lead_repository.needs_tour_availability(lead)
                 )
-
-                print(f"[DEBUG] Missing fields analysis:")
-                print(f"  missing_required_fields: {missing_fields}")
-                print(f"  missing_optional_fields: {missing_optional}")
-                print(f"  needs_tour_availability: {needs_tour_availability}")
+                missing_fields_analysis = {
+                    "missing_required_fields": missing_fields,
+                    "missing_optional_fields": missing_optional,
+                    "needs_tour_availability": needs_tour_availability,
+                }
+                print(f"[DEBUG] Missing fields analysis: {missing_fields_analysis}")
 
                 # Generate AI response based on phase
                 ai_response = await self.ai_service.generate_response(

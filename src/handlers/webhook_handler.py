@@ -25,82 +25,89 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Main Lambda handler for processing Telnyx webhook events with dependency injection
     """
     global event_processor, error_handler
-    
+
     # Initialize services if not already done
-    if event_processor is None:
+    if event_processor is None or error_handler is None:
         initialize_services()
         event_processor = container.resolve(IEventProcessor)
         error_handler = ErrorHandler()
-    
+
     try:
         # Parse the incoming webhook
         body = json.loads(event.get("body", "{}"))
         print(f"Received webhook: {json.dumps(body, indent=2)}")
-        
+
         # Extract webhook data
         webhook_data = body.get("data", {})
-        
+
         # Create WebhookEvent from raw data
         try:
             webhook_event = WebhookEvent.from_telnyx_webhook(webhook_data)
-            print(f"[DEBUG] Successfully parsed webhook event: {webhook_event.event_type}")
-            print(f"[DEBUG] Message from: {webhook_event.payload.from_number}")
-            print(f"[DEBUG] Message to: {webhook_event.payload.to_numbers}")
-            print(f"[DEBUG] Message text: {webhook_event.payload.text[:50]}...")
+            webhook_event_data = {
+                "event_type": webhook_event.event_type,
+                "from_number": webhook_event.payload.from_number,
+                "to_numbers": webhook_event.payload.to_numbers,
+                "text": webhook_event.payload.text,
+            }
+            print(
+                f"[DEBUG] Webhook event data: {json.dumps(webhook_event_data, indent=2)}"
+            )
         except ValueError as e:
             print(f"Invalid webhook data: {e}")
             return error_handler.handle_validation_error(str(e))
-        
+
         # Validate the event
         if not asyncio.run(event_processor.validate_event(webhook_event)):
             print(f"Event validation failed for event type: {webhook_event.event_type}")
             return {
                 "statusCode": 200,
-                "body": json.dumps({"message": "Event validation failed"})
+                "body": json.dumps({"message": "Event validation failed"}),
             }
-        
+
         # We only care about incoming messages
         if not webhook_event.is_message_received():
             print(f"Ignoring event type: {webhook_event.event_type}")
-            return {
-                "statusCode": 200,
-                "body": json.dumps({"message": "Event ignored"})
-            }
-        
+            return {"statusCode": 200, "body": json.dumps({"message": "Event ignored"})}
+
         # Check if this message is from the agent or Telnyx number (ignore if so)
         import os
+
         agent_phone = os.getenv("AGENT_PHONE_NUMBER")
         telnyx_phone = os.getenv("TELNYX_PHONE_NUMBER")
-        
+
         if agent_phone and webhook_event.is_from_agent(agent_phone):
             print(f"Ignoring message from agent: {webhook_event.payload.from_number}")
             return {
                 "statusCode": 200,
-                "body": json.dumps({"message": "Agent message ignored"})
+                "body": json.dumps({"message": "Agent message ignored"}),
             }
-        
+
         if telnyx_phone and webhook_event.payload.from_number == telnyx_phone:
-            print(f"Ignoring message from Telnyx number: {webhook_event.payload.from_number}")
+            print(
+                f"Ignoring message from Telnyx number: {webhook_event.payload.from_number}"
+            )
             return {
                 "statusCode": 200,
-                "body": json.dumps({"message": "Telnyx message ignored"})
+                "body": json.dumps({"message": "Telnyx message ignored"}),
             }
-        
+
         # Process the event
         result = asyncio.run(event_processor.process_event(webhook_event))
-        
+
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "message": "Message processed successfully",
-                "response": result.get("response", "")
-            })
+            "body": json.dumps(
+                {
+                    "message": "Message processed successfully",
+                    "response": result.get("response", ""),
+                }
+            ),
         }
-        
+
     except json.JSONDecodeError as e:
         print(f"Error parsing webhook JSON: {e}")
         return error_handler.handle_validation_error("Invalid JSON in webhook body")
-        
+
     except Exception as e:
         print(f"Error processing webhook: {e}")
         return error_handler.handle_internal_error(str(e))
@@ -110,25 +117,27 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 if __name__ == "__main__":
     # Test event structure
     test_event = {
-        "body": json.dumps({
-            "data": {
-                "event_type": "message.received",
-                "payload": {
-                    "from": {"phone_number": "+1234567890"},
-                    "to": [{"phone_number": "+1987654321"}],
-                    "text": "Hi, I'm looking for a 2 bedroom apartment",
-                },
+        "body": json.dumps(
+            {
+                "data": {
+                    "event_type": "message.received",
+                    "payload": {
+                        "from": {"phone_number": "+1234567890"},
+                        "to": [{"phone_number": "+1987654321"}],
+                        "text": "Hi, I'm looking for a 2 bedroom apartment",
+                    },
+                }
             }
-        })
+        )
     }
-    
+
     print("Testing webhook handler locally...")
     print("Loading local .env")
     load_dotenv()
-    
+
     # Initialize services
     initialize_services()
-    
+
     # Test the handler
     result = lambda_handler(test_event, None)
     print(f"Result: {result}")
