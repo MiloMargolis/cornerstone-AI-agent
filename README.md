@@ -19,7 +19,7 @@ This application follows **Clean Architecture** principles with clear separation
 - **Event-Driven Architecture** - Asynchronous message processing
 - **Service Layer Pattern** - Business logic abstraction
 - **Repository Pattern** - Data access abstraction
-- **Dependency Injection** - Loose coupling and testability
+- **Simplified Architecture** - Direct service instantiation for reliability
 - **Domain-Driven Design** - Rich domain models with business logic
 
 ## 📁 Project Structure
@@ -31,7 +31,7 @@ src/
 │   ├── follow_up_handler.py    # Scheduled follow-up processor
 │   └── outreach_handler.py     # Manual outreach API
 ├── core/                  # 🧠 Business Logic
-│   ├── container.py            # Dependency injection container
+│   ├── event_processor.py      # Event processing logic
 │   ├── event_processor.py      # Event orchestration
 │   └── lead_processor.py       # Core lead qualification logic
 ├── models/                # 📊 Domain Models

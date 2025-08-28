@@ -1,7 +1,7 @@
 import pytest
 import json
 from unittest.mock import Mock, patch, AsyncMock
-from src.handlers.webhook_handler import lambda_handler, initialize_services
+from src.handlers.webhook_handler import lambda_handler, get_services
 
 
 class TestWebhookHandler:
@@ -25,20 +25,23 @@ class TestWebhookHandler:
             })
         }
     
-    @patch('src.handlers.webhook_handler.container')
-    @patch('src.handlers.webhook_handler.ErrorHandler')
-    def test_lambda_handler_success(self, mock_error_handler, mock_container):
+    @patch('src.handlers.webhook_handler.EventProcessor')
+    @patch('src.handlers.webhook_handler.LeadProcessor')
+    @patch('src.handlers.webhook_handler.DelayDetectionService')
+    @patch('src.handlers.webhook_handler.OpenAIService')
+    @patch('src.handlers.webhook_handler.TelnyxService')
+    @patch('src.handlers.webhook_handler.LeadRepository')
+    def test_lambda_handler_success(self, mock_lead_repo, mock_telnyx, mock_ai, mock_delay, mock_lead_processor, mock_event_processor):
         """Test successful webhook processing"""
         # Setup mocks
-        mock_event_processor = Mock()
-        mock_event_processor.validate_event = AsyncMock(return_value=True)
-        mock_event_processor.process_event = AsyncMock()
-        mock_event_processor.process_event.return_value = {
+        mock_event_instance = Mock()
+        mock_event_instance.validate_event = AsyncMock(return_value=True)
+        mock_event_instance.process_event = AsyncMock()
+        mock_event_instance.process_event.return_value = {
             "success": True,
             "response": "Thanks for your message!"
         }
-        
-        mock_container.resolve.return_value = mock_event_processor
+        mock_event_processor.return_value = mock_event_instance
         
         # Execute
         result = lambda_handler(self.valid_webhook_event, None)
@@ -49,25 +52,21 @@ class TestWebhookHandler:
         assert body["message"] == "Message processed successfully"
         assert body["response"] == "Thanks for your message!"
         
-        mock_event_processor.validate_event.assert_called_once()
-        mock_event_processor.process_event.assert_called_once()
+        mock_event_instance.validate_event.assert_called_once()
+        mock_event_instance.process_event.assert_called_once()
     
-    @patch('src.handlers.webhook_handler.container')
-    @patch('src.handlers.webhook_handler.error_handler')
-    def test_lambda_handler_validation_failed(self, mock_error_handler, mock_container):
+    @patch('src.handlers.webhook_handler.EventProcessor')
+    @patch('src.handlers.webhook_handler.LeadProcessor')
+    @patch('src.handlers.webhook_handler.DelayDetectionService')
+    @patch('src.handlers.webhook_handler.OpenAIService')
+    @patch('src.handlers.webhook_handler.TelnyxService')
+    @patch('src.handlers.webhook_handler.LeadRepository')
+    def test_lambda_handler_validation_failed(self, mock_lead_repo, mock_telnyx, mock_ai, mock_delay, mock_lead_processor, mock_event_processor):
         """Test webhook processing when validation fails"""
-        # Reset global variables
-        import src.handlers.webhook_handler as webhook_module
-        webhook_module.event_processor = None
-        webhook_module.error_handler = None
-        
         # Setup mocks
-        mock_event_processor = Mock()
-        mock_event_processor.validate_event = AsyncMock(return_value=False)
-        
-        # Mock container methods
-        mock_container.build_services = Mock()
-        mock_container.resolve.return_value = mock_event_processor
+        mock_event_instance = Mock()
+        mock_event_instance.validate_event = AsyncMock(return_value=False)
+        mock_event_processor.return_value = mock_event_instance
         
         # Execute
         result = lambda_handler(self.valid_webhook_event, None)
@@ -77,59 +76,64 @@ class TestWebhookHandler:
         body = json.loads(result["body"])
         assert body["message"] == "Event validation failed"
         
-        mock_event_processor.validate_event.assert_called_once()
-        mock_event_processor.process_event.assert_not_called()
+        mock_event_instance.validate_event.assert_called_once()
+        mock_event_instance.process_event.assert_not_called()
     
-    @patch('src.handlers.webhook_handler.container')
-    @patch('src.handlers.webhook_handler.error_handler')
-    def test_lambda_handler_invalid_json(self, mock_error_handler, mock_container):
+    def test_lambda_handler_invalid_json(self):
         """Test webhook processing with invalid JSON"""
-        # Setup mocks
-        mock_error_handler.handle_validation_error.return_value = {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Invalid JSON"})
-        }
-        
-        # Mock container methods
-        mock_container.build_services = Mock()
-        
         # Execute with invalid JSON
         invalid_event = {"body": "invalid json"}
         result = lambda_handler(invalid_event, None)
         
         # Verify
         assert result["statusCode"] == 400
-        mock_error_handler.handle_validation_error.assert_called_once_with("Invalid JSON in webhook body")
+        body = json.loads(result["body"])
+        assert "Invalid JSON" in body["error"]
     
-    @patch('src.handlers.webhook_handler.container')
-    @patch('src.handlers.webhook_handler.ErrorHandler')
-    def test_lambda_handler_processing_error(self, mock_error_handler_class, mock_container):
-        """Test webhook processing when processing fails"""
-        # Reset global variables
-        import src.handlers.webhook_handler as webhook_module
-        webhook_module.event_processor = None
-        webhook_module.error_handler = None
+    def test_lambda_handler_agent_message_ignored(self):
+        """Test that agent messages are ignored"""
+        import os
+        os.environ["AGENT_PHONE_NUMBER"] = "+1234567890"
         
-        # Setup mocks
-        mock_event_processor = Mock()
-        mock_event_processor.validate_event = AsyncMock(return_value=True)
-        mock_event_processor.process_event = AsyncMock()
-        mock_event_processor.process_event.side_effect = Exception("Processing error")
-        
-        mock_error_handler_instance = Mock()
-        mock_error_handler_instance.handle_internal_error.return_value = {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Internal error"})
+        agent_webhook_event = {
+            "body": json.dumps({
+                "data": {
+                    "event_type": "message.received",
+                    "payload": {
+                        "from": {"phone_number": "+1234567890"},
+                        "to": [{"phone_number": "+1987654321"}],
+                        "text": "Agent message"
+                    }
+                }
+            })
         }
-        mock_error_handler_class.return_value = mock_error_handler_instance
         
-        # Mock container methods
-        mock_container.build_services = Mock()
-        mock_container.resolve.return_value = mock_event_processor
+        result = lambda_handler(agent_webhook_event, None)
         
-        # Execute
-        result = lambda_handler(self.valid_webhook_event, None)
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "Agent message ignored"
+    
+    def test_lambda_handler_telnyx_message_ignored(self):
+        """Test that Telnyx messages are ignored"""
+        import os
+        os.environ["TELNYX_PHONE_NUMBER"] = "+1987654321"
         
-        # Verify
-        assert result["statusCode"] == 500
-        mock_error_handler_instance.handle_internal_error.assert_called_once_with("Processing error")
+        telnyx_webhook_event = {
+            "body": json.dumps({
+                "data": {
+                    "event_type": "message.received",
+                    "payload": {
+                        "from": {"phone_number": "+1987654321"},
+                        "to": [{"phone_number": "+1234567890"}],
+                        "text": "Telnyx message"
+                    }
+                }
+            })
+        }
+        
+        result = lambda_handler(telnyx_webhook_event, None)
+        
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "Telnyx message ignored"

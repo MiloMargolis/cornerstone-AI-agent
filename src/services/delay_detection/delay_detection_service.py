@@ -7,7 +7,7 @@ from services.interfaces import IDelayDetectionService
 from utils.prompt_loader import PromptLoader
 
 
-class DelayDetectionService(IDelayDetectionService):
+class DelayDetectionService:
     """Delay detection service implementation - migrated from legacy client"""
     
     def __init__(self):

@@ -9,8 +9,8 @@ from utils.constants import PHASE_CONFIGS, REQUIRED_FIELDS, OPTIONAL_FIELDS
 from utils.prompt_loader import PromptLoader
 
 
-class OpenAIService(IAIService):
-    """OpenAI service implementation - migrated from legacy client"""
+class OpenAIService:
+    """OpenAI service implementation for AI operations"""
 
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -117,7 +117,7 @@ class OpenAIService(IAIService):
             }
 
             system_prompt = self.prompt_loader.render("extraction.tmpl", context)
-            print(f"[DEBUG] Extraction prompt: {system_prompt}")
+
 
             response = self.client.chat.completions.create(
                 model=self.model,

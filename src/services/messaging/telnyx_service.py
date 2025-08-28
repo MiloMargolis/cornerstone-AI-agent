@@ -1,11 +1,12 @@
 import os
 import telnyx
 from typing import Dict, Any
-from services.interfaces import IMessagingService
+
+from models.lead import Lead
 
 
-class TelnyxService(IMessagingService):
-    """Telnyx messaging service implementation - migrated from legacy client"""
+class TelnyxService:
+    """Telnyx messaging service implementation"""
 
     def __init__(self):
         api_key = os.getenv("TELNYX_API_KEY")
@@ -42,7 +43,7 @@ class TelnyxService(IMessagingService):
             return False
 
 
-class MockTelnyxService(IMessagingService):
+class MockTelnyxService:
     """Mock Telnyx service for testing"""
 
     def __init__(self):

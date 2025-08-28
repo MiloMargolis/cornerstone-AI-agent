@@ -3,40 +3,63 @@ import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-from core.container import container
-from services.interfaces import IEventProcessor
+from services.database.lead_repository import LeadRepository
+from services.messaging.telnyx_service import TelnyxService
+from services.ai.openai_service import OpenAIService
+from services.delay_detection.delay_detection_service import DelayDetectionService
+from core.lead_processor import LeadProcessor
+from core.event_processor import EventProcessor
 from models.webhook import WebhookEvent
 from middleware.error_handler import ErrorHandler
 
 
-# Initialize the service container
-def initialize_services():
-    """Initialize all services and dependencies"""
-    container.build_services()
+# Simple service instances - created once per Lambda container
+_services_initialized = False
+_lead_processor = None
+_event_processor = None
 
 
-# Global handler instance
-event_processor = None
-error_handler = None
+def get_services():
+    """Get or create service instances (singleton pattern)"""
+    global _services_initialized, _lead_processor, _event_processor
+    
+    if not _services_initialized:
+        print("[INIT] Creating service instances")
+        
+        # Create services directly
+        lead_repository = LeadRepository()
+        messaging_service = TelnyxService()
+        ai_service = OpenAIService()
+        delay_detection_service = DelayDetectionService()
+        
+        # Create processors
+        _lead_processor = LeadProcessor(
+            lead_repository=lead_repository,
+            messaging_service=messaging_service,
+            ai_service=ai_service,
+            delay_detection_service=delay_detection_service
+        )
+        
+        _event_processor = EventProcessor(lead_processor=_lead_processor)
+        _services_initialized = True
+        
+        print("[INIT] Services created successfully")
+    
+    return _event_processor
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Main Lambda handler for processing Telnyx webhook events with dependency injection
+    Simple Lambda handler for processing Telnyx webhook events
     """
-    global event_processor, error_handler
-
-    # Initialize services if not already done
-    if event_processor is None or error_handler is None:
-        initialize_services()
-        event_processor = container.resolve(IEventProcessor)
-        error_handler = ErrorHandler()
+    # Get services (created once per container)
+    event_processor = get_services()
+    error_handler = ErrorHandler()
 
     try:
         # Parse the incoming webhook
         body = json.loads(event.get("body", "{}"))
-        # print(f"Received webhook: {json.dumps(body, indent=2)}")
-
+        
         # Extract webhook data
         webhook_data = body.get("data", {})
 
@@ -44,21 +67,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             webhook_event = WebhookEvent.from_telnyx_webhook(webhook_data)
             webhook_event_data = {
-                "event_type": webhook_event.event_type,
+                "event_type": webhook_event.event_type.value,
                 "from_number": webhook_event.payload.from_number,
                 "to_numbers": webhook_event.payload.to_numbers,
                 "text": webhook_event.payload.text,
             }
-            print(
-                f"[DEBUG] Webhook event data: {json.dumps(webhook_event_data, indent=2)}"
-            )
+            print(f"[DEBUG] Webhook event data: {json.dumps(webhook_event_data, indent=2)}")
         except ValueError as e:
             print(f"Invalid webhook data: {e}")
             return error_handler.handle_validation_error(str(e))
 
         # Validate the event
         if not asyncio.run(event_processor.validate_event(webhook_event)):
-            print(f"Event validation failed for event type: {webhook_event.event_type}")
+            print(f"Event validation failed for event type: {webhook_event.event_type.value}")
             return {
                 "statusCode": 200,
                 "body": json.dumps({"message": "Event validation failed"}),
@@ -66,12 +87,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # We only care about incoming messages
         if not webhook_event.is_message_received():
-            print(f"Ignoring event type: {webhook_event.event_type}")
+            print(f"Ignoring event type: {webhook_event.event_type.value}")
             return {"statusCode": 200, "body": json.dumps({"message": "Event ignored"})}
 
         # Check if this message is from the agent or Telnyx number (ignore if so)
         import os
-
         agent_phone = os.getenv("AGENT_PHONE_NUMBER")
         telnyx_phone = os.getenv("TELNYX_PHONE_NUMBER")
 
@@ -83,9 +103,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         if telnyx_phone and webhook_event.payload.from_number == telnyx_phone:
-            print(
-                f"Ignoring message from Telnyx number: {webhook_event.payload.from_number}"
-            )
+            print(f"Ignoring message from Telnyx number: {webhook_event.payload.from_number}")
             return {
                 "statusCode": 200,
                 "body": json.dumps({"message": "Telnyx message ignored"}),
@@ -96,12 +114,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         return {
             "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "message": "Message processed successfully",
-                    "response": result.get("response", ""),
-                }
-            ),
+            "body": json.dumps({
+                "message": "Message processed successfully",
+                "response": result.get("response", ""),
+            }),
         }
 
     except json.JSONDecodeError as e:
@@ -117,26 +133,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 if __name__ == "__main__":
     # Test event structure
     test_event = {
-        "body": json.dumps(
-            {
-                "data": {
-                    "event_type": "message.received",
-                    "payload": {
-                        "from": {"phone_number": "+1234567890"},
-                        "to": [{"phone_number": "+1987654321"}],
-                        "text": "Hi, I'm looking for a 2 bedroom apartment",
-                    },
-                }
+        "body": json.dumps({
+            "data": {
+                "event_type": "message.received",
+                "payload": {
+                    "from": {"phone_number": "+1234567890"},
+                    "to": [{"phone_number": "+1987654321"}],
+                    "text": "Hi, I'm looking for a 2 bedroom apartment",
+                },
             }
-        )
+        })
     }
 
     print("Testing webhook handler locally...")
     print("Loading local .env")
     load_dotenv()
-
-    # Initialize services
-    initialize_services()
 
     # Test the handler
     result = lambda_handler(test_event, None)

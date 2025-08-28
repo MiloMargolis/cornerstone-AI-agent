@@ -3,10 +3,33 @@ import asyncio
 from typing import Dict, Any
 import json
 
-from core.container import container
-from services.interfaces import ILeadRepository, IMessagingService
+from services.database.lead_repository import LeadRepository
+from services.messaging.telnyx_service import TelnyxService
 from models.lead import Lead
 from middleware.error_handler import ErrorHandler
+
+
+# Simple service instances - created once per Lambda container
+_services_initialized = False
+_lead_repository = None
+_messaging_service = None
+
+
+def get_services():
+    """Get or create service instances (singleton pattern)"""
+    global _services_initialized, _lead_repository, _messaging_service
+    
+    if not _services_initialized:
+        print("[INIT] Creating outreach service instances")
+        
+        # Create services directly
+        _lead_repository = LeadRepository()
+        _messaging_service = TelnyxService()
+        _services_initialized = True
+        
+        print("[INIT] Outreach services created successfully")
+    
+    return _lead_repository, _messaging_service
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -14,10 +37,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Lambda handler for the outreach handler
     """
     try:
-        # Initialize services from container
-        container.build_services()
-        lead_repository = container.resolve(ILeadRepository)
-        messaging_service = container.resolve(IMessagingService)
+        # Get services (created once per container)
+        lead_repository, messaging_service = get_services()
         error_handler = ErrorHandler()
 
         # Validate input
@@ -106,8 +127,8 @@ def extract_first_name(full_name: str | None) -> str:
 async def send_initial_outreach_message(
     lead: Lead, 
     phone_number: str, 
-    lead_repository: ILeadRepository,
-    messaging_service: IMessagingService
+    lead_repository: LeadRepository,
+    messaging_service: TelnyxService
 ) -> bool:
     """
     Send the initial outreach message to the phone number.

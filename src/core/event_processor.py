@@ -1,10 +1,9 @@
 from typing import Dict, Any
-from services.interfaces import IEventProcessor
 from models.webhook import WebhookEvent
 from core.lead_processor import LeadProcessor
 
 
-class EventProcessor(IEventProcessor):
+class EventProcessor:
     """Event processor for handling webhook events"""
     
     def __init__(self, lead_processor: LeadProcessor):

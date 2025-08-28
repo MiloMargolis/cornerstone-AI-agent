@@ -1,11 +1,9 @@
 import os
 
-from services.interfaces import (
-    ILeadRepository,
-    IMessagingService,
-    IAIService,
-    IDelayDetectionService,
-)
+from services.database.lead_repository import LeadRepository
+from services.messaging.telnyx_service import TelnyxService
+from services.ai.openai_service import OpenAIService
+from services.delay_detection.delay_detection_service import DelayDetectionService
 from models.lead import Lead
 from config.follow_up_config import FOLLOW_UP_SCHEDULE
 
@@ -15,10 +13,10 @@ class LeadProcessor:
 
     def __init__(
         self,
-        lead_repository: ILeadRepository,
-        messaging_service: IMessagingService,
-        ai_service: IAIService,
-        delay_detection_service: IDelayDetectionService,
+        lead_repository: LeadRepository,
+        messaging_service: TelnyxService,
+        ai_service: OpenAIService,
+        delay_detection_service: DelayDetectionService,
     ):
         self.lead_repository = lead_repository
         self.messaging_service = messaging_service

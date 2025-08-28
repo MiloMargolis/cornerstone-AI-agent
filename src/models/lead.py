@@ -33,7 +33,6 @@ class Lead:
     
     # Status fields
     tour_ready: bool = False
-    status: LeadStatus = LeadStatus.NEW
     
     # Follow-up fields
     follow_up_count: int = 0

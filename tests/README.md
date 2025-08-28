@@ -7,7 +7,7 @@ This directory contains comprehensive test coverage for the Cornerstone AI Agent
 The test suite is organized by module to match the source code structure:
 
 ### Core Tests (`test_core/`)
-- **`test_container.py`** - Tests for dependency injection container
+- **`test_webhook_handler.py`** - Tests for webhook processing
   - Service registration and resolution
   - Singleton vs regular service registration
   - Service building and configuration
@@ -164,7 +164,7 @@ The test suite provides comprehensive coverage for:
 ### Core Business Logic
 - Lead message processing workflows
 - Event validation and processing
-- Dependency injection and service management
+- Simplified service management and direct instantiation
 
 ### API Handlers
 - Lambda function entry points

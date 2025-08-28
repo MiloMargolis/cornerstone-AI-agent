@@ -3,10 +3,33 @@ import json
 from typing import Dict, Any
 from datetime import datetime
 
-from core.container import container
-from services.interfaces import ILeadRepository, IMessagingService
+from services.database.lead_repository import LeadRepository
+from services.messaging.telnyx_service import TelnyxService
 from models.lead import Lead
 from config.follow_up_config import FOLLOW_UP_SCHEDULE, FOLLOW_UP_MESSAGES, MAX_FOLLOW_UPS
+
+
+# Simple service instances - created once per Lambda container
+_services_initialized = False
+_lead_repository = None
+_messaging_service = None
+
+
+def get_services():
+    """Get or create service instances (singleton pattern)"""
+    global _services_initialized, _lead_repository, _messaging_service
+    
+    if not _services_initialized:
+        print("[INIT] Creating follow-up service instances")
+        
+        # Create services directly
+        _lead_repository = LeadRepository()
+        _messaging_service = TelnyxService()
+        _services_initialized = True
+        
+        print("[INIT] Follow-up services created successfully")
+    
+    return _lead_repository, _messaging_service
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -14,10 +37,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Follow-up handler that runs on a schedule to send follow-up messages
     """
     try:
-        # Initialize services from container
-        container.build_services()
-        lead_repository = container.resolve(ILeadRepository)
-        messaging_service = container.resolve(IMessagingService)
+        # Get services (created once per container)
+        lead_repository, messaging_service = get_services()
 
         # Get leads that need follow-up
         leads_to_follow_up = asyncio.run(lead_repository.get_leads_needing_follow_up())
@@ -56,11 +77,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 async def process_follow_up(
     lead: Lead, 
-    lead_repository: ILeadRepository, 
-    messaging_service: IMessagingService
+    lead_repository: LeadRepository, 
+    messaging_service: TelnyxService
 ) -> bool:
     """
-    Process follow-up for a single lead using the new architecture
+    Process follow-up for a single lead
     """
     if not lead.phone:
         print("No phone number found for lead")

@@ -3,12 +3,11 @@ from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 
-from services.interfaces import ILeadRepository
 from models.lead import Lead
 from utils.constants import REQUIRED_FIELDS, OPTIONAL_FIELDS
 
 
-class LeadRepository(ILeadRepository):
+class LeadRepository:
     """Repository implementation for lead data access using Supabase - migrated from legacy client"""
 
     def __init__(self):
