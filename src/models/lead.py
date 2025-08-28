@@ -41,7 +41,7 @@ class Lead:
     follow_up_paused_until: Optional[datetime] = None
     
     # Optional qualification fields
-    rental_urgency: Optional[str] = None
+    # rental_urgency: Optional[str] = None  # REMOVED: rental_urgency field disabled
     boston_rental_experience: Optional[str] = None
     
     # Metadata
@@ -70,7 +70,7 @@ class Lead:
     @property
     def missing_optional_fields(self) -> list[str]:
         """Get list of missing optional fields"""
-        optional_fields = ["rental_urgency", "boston_rental_experience"]
+        optional_fields = ["boston_rental_experience"]  # rental_urgency removed
         return [field for field in optional_fields 
                 if not getattr(self, field) or not str(getattr(self, field)).strip()]
     
@@ -99,7 +99,7 @@ class Lead:
             "follow_up_stage": self.follow_up_stage,
             "next_follow_up_time": self.next_follow_up_time.isoformat() if self.next_follow_up_time else None,
             "follow_up_paused_until": self.follow_up_paused_until.isoformat() if self.follow_up_paused_until else None,
-            "rental_urgency": self.rental_urgency or "",
+            # "rental_urgency": self.rental_urgency or "",  # REMOVED
             "boston_rental_experience": self.boston_rental_experience or "",
             "chat_history": self.chat_history,
             "last_contacted": self.last_contacted.isoformat() if self.last_contacted else None,
@@ -133,7 +133,7 @@ class Lead:
             follow_up_stage=data.get("follow_up_stage", "scheduled"),
             next_follow_up_time=parse_datetime(data.get("next_follow_up_time")),
             follow_up_paused_until=parse_datetime(data.get("follow_up_paused_until")),
-            rental_urgency=data.get("rental_urgency"),
+            # rental_urgency=data.get("rental_urgency"),  # REMOVED
             boston_rental_experience=data.get("boston_rental_experience"),
             chat_history=data.get("chat_history", ""),
             last_contacted=parse_datetime(data.get("last_contacted")),

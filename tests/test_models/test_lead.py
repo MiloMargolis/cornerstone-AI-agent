@@ -35,7 +35,7 @@ class TestLead:
             status=LeadStatus.TOUR_READY,
             follow_up_count=3,
             follow_up_stage="final",
-            rental_urgency="High",
+            # rental_urgency="High",  # REMOVED
             boston_rental_experience="First time"
         )
         
@@ -53,7 +53,7 @@ class TestLead:
         assert lead.status == LeadStatus.TOUR_READY
         assert lead.follow_up_count == 3
         assert lead.follow_up_stage == "final"
-        assert lead.rental_urgency == "High"
+        # assert lead.rental_urgency == "High"  # REMOVED
         assert lead.boston_rental_experience == "First time"
     
     def test_lead_creation_missing_phone(self):
@@ -140,23 +140,23 @@ class TestLead:
         """Test getting list of missing optional fields"""
         lead = Lead(
             phone="+1234567890",
-            # Missing rental_urgency, boston_rental_experience
+            # Missing boston_rental_experience (rental_urgency removed)
         )
         
         missing_fields = lead.missing_optional_fields
-        assert "rental_urgency" in missing_fields
+        # assert "rental_urgency" in missing_fields  # REMOVED
         assert "boston_rental_experience" in missing_fields
     
     def test_missing_optional_fields_some_present(self):
         """Test getting list of missing optional fields when some are present"""
         lead = Lead(
             phone="+1234567890",
-            rental_urgency="High"
+            # rental_urgency="High"  # REMOVED
             # Missing boston_rental_experience
         )
         
         missing_fields = lead.missing_optional_fields
-        assert "rental_urgency" not in missing_fields
+        # assert "rental_urgency" not in missing_fields  # REMOVED
         assert "boston_rental_experience" in missing_fields
     
     def test_needs_tour_availability_qualified_no_tour_ready(self):
@@ -232,7 +232,7 @@ class TestLead:
             tour_ready=True,
             follow_up_count=3,
             follow_up_stage="final",
-            rental_urgency="High",
+            # rental_urgency="High",  # REMOVED
             boston_rental_experience="First time",
             chat_history="Test conversation"
         )
@@ -252,7 +252,7 @@ class TestLead:
         assert lead_dict["tour_ready"] is True
         assert lead_dict["follow_up_count"] == 3
         assert lead_dict["follow_up_stage"] == "final"
-        assert lead_dict["rental_urgency"] == "High"
+        # assert lead_dict["rental_urgency"] == "High"  # REMOVED
         assert lead_dict["boston_rental_experience"] == "First time"
         assert lead_dict["chat_history"] == "Test conversation"
     
@@ -271,7 +271,7 @@ class TestLead:
         assert lead_dict["location"] == ""
         assert lead_dict["amenities"] == ""
         assert lead_dict["tour_availability"] == ""
-        assert lead_dict["rental_urgency"] == ""
+        # assert lead_dict["rental_urgency"] == ""  # REMOVED
         assert lead_dict["boston_rental_experience"] == ""
         assert lead_dict["chat_history"] == ""
     
@@ -291,7 +291,7 @@ class TestLead:
             "tour_ready": True,
             "follow_up_count": 3,
             "follow_up_stage": "final",
-            "rental_urgency": "High",
+            # "rental_urgency": "High",  # REMOVED
             "boston_rental_experience": "First time",
             "chat_history": "Test conversation",
             "last_contacted": datetime.now()
@@ -312,7 +312,7 @@ class TestLead:
         assert lead.tour_ready is True
         assert lead.follow_up_count == 3
         assert lead.follow_up_stage == "final"
-        assert lead.rental_urgency == "High"
+        # assert lead.rental_urgency == "High"  # REMOVED
         assert lead.boston_rental_experience == "First time"
         assert lead.chat_history == "Test conversation"
         assert lead.last_contacted is not None

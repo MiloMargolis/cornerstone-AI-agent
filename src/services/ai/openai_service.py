@@ -21,14 +21,40 @@ class OpenAIService:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.prompt_loader = PromptLoader()
 
-    def _get_database_status(self, lead_data: Dict) -> str:
-        """Generate a string representing the database status of required and optional fields"""
+    def _create_virtual_lead(self, lead: Lead, extracted_info: Dict[str, Any]) -> Lead:
+        """Create a virtual lead state that includes newly extracted information"""
+        # Create a copy of the lead with extracted info applied
+        virtual_data = lead.to_dict()
+        
+        # Apply extracted info to virtual data
+        for field, value in extracted_info.items():
+            if value and str(value).strip():
+                virtual_data[field] = value
+        
+        # Create new Lead instance from virtual data
+        return Lead.from_dict(virtual_data)
+
+    def _get_database_status(self, lead_data: Dict, extracted_info: Optional[Dict[str, Any]] = None) -> str:
+        """Generate a string representing the database status of required and optional fields with indication of newly extracted fields"""
         database_status = []
 
         for field in REQUIRED_FIELDS:
             value = lead_data.get(field)
             has_content = value and str(value).strip()
-            status = "✓ HAS DATA" if has_content else "✗ MISSING"
+            
+            # Check if this field was just extracted
+            just_extracted = (extracted_info and 
+                             field in extracted_info and 
+                             extracted_info[field] and 
+                             str(extracted_info[field]).strip())
+            
+            if just_extracted:
+                status = "✓ JUST PROVIDED"
+            elif has_content:
+                status = "✓ HAS DATA"
+            else:
+                status = "✗ MISSING"
+                
             database_status.append(
                 f"{field}: {status} ({value if has_content else 'empty'})"
             )
@@ -37,7 +63,20 @@ class OpenAIService:
         for field in OPTIONAL_FIELDS:
             value = lead_data.get(field)
             has_content = value and str(value).strip()
-            status = "✓ HAS DATA" if has_content else "○ OPTIONAL"
+            
+            # Check if this field was just extracted
+            just_extracted = (extracted_info and 
+                             field in extracted_info and 
+                             extracted_info[field] and 
+                             str(extracted_info[field]).strip())
+            
+            if just_extracted:
+                status = "✓ JUST PROVIDED"
+            elif has_content:
+                status = "✓ HAS DATA"
+            else:
+                status = "○ OPTIONAL"
+                
             database_status.append(
                 f"{field}: {status} ({value if has_content else 'could ask about'})"
             )
@@ -60,21 +99,23 @@ class OpenAIService:
 
     def _get_phase_instructions(
         self,
-        needs_tour_availability: bool,
-        missing_fields: List[str],
-        missing_optional: Optional[List[str]],
+        lead: Lead,
         extracted_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
         """Determine the current phase and instructions based on the lead's data and what was just extracted"""
         
-        # If we have extracted info, filter out fields that were just provided
+        # Create virtual lead state that includes extracted info
         if extracted_info:
-            # Remove fields that were just extracted from missing fields lists
-            extracted_fields = [k for k, v in extracted_info.items() if v and str(v).strip()]
-            missing_fields = [field for field in missing_fields if field not in extracted_fields]
-            if missing_optional:
-                missing_optional = [field for field in missing_optional if field not in extracted_fields]
+            virtual_lead = self._create_virtual_lead(lead, extracted_info)
+        else:
+            virtual_lead = lead
         
+        # Calculate missing fields from the virtual lead state
+        missing_fields = virtual_lead.missing_required_fields
+        missing_optional = virtual_lead.missing_optional_fields
+        needs_tour_availability = virtual_lead.needs_tour_availability
+        
+        # Now determine phase based on accurate state
         if needs_tour_availability:
             phase = PHASE_CONFIGS["TOUR_SCHEDULING"].name
             phase_instructions = PHASE_CONFIGS["TOUR_SCHEDULING"].instructions
@@ -109,7 +150,7 @@ class OpenAIService:
                 "location": current_data.get("location", "EMPTY"),
                 "amenities": current_data.get("amenities", "EMPTY"),
                 "tour_availability": current_data.get("tour_availability", "EMPTY"),
-                "rental_urgency": current_data.get("rental_urgency", "EMPTY"),
+                # "rental_urgency": current_data.get("rental_urgency", "EMPTY"),  # REMOVED
                 "boston_rental_experience": current_data.get(
                     "boston_rental_experience", "EMPTY"
                 ),
@@ -158,23 +199,28 @@ class OpenAIService:
     ) -> str:
         """Generate AI response based on lead state"""
         try:
-            lead_data = lead.to_dict()
+            # Create virtual lead state that includes extracted info
+            if extracted_info:
+                virtual_lead = self._create_virtual_lead(lead, extracted_info)
+            else:
+                virtual_lead = lead
+            
+            # Use virtual lead for all context generation
+            lead_data = virtual_lead.to_dict()
 
             print(f"[DEBUG] Lead data at response generation: {lead_data}")
             print(f"[DEBUG] Missing fields: {missing_fields}")
             print(f"[DEBUG] Missing optional: {missing_optional}")
 
-            # Get database status
-            database_status = self._get_database_status(lead_data)
+            # Get database status with indication of newly extracted fields
+            database_status = self._get_database_status(lead_data, extracted_info)
             print(f"[DEBUG] Database status: {database_status}")
 
             # Get chat history
             chat_history = self._get_chat_history(lead_data)
 
-            # Get phase instructions
-            phase, phase_instructions = self._get_phase_instructions(
-                needs_tour_availability, missing_fields, missing_optional, extracted_info
-            )
+            # Get phase instructions using virtual lead state
+            phase, phase_instructions = self._get_phase_instructions(virtual_lead, extracted_info)
 
             # Build the prompt
             context = {

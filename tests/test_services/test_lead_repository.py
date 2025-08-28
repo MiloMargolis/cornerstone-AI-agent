@@ -382,14 +382,14 @@ class TestLeadRepository:
         """Test getting missing optional fields"""
         lead = Lead(
             phone="+1234567890",
-            rental_urgency="High"
+            # rental_urgency="High"  # REMOVED
             # Missing boston_rental_experience
         )
         
         result = await self.repository.get_missing_optional_fields(lead)
         
         assert "boston_rental_experience" in result
-        assert "rental_urgency" not in result
+        # assert "rental_urgency" not in result  # REMOVED
     
     @pytest.mark.asyncio
     async def test_needs_tour_availability(self):

@@ -2,7 +2,7 @@ from typing import Dict
 from dataclasses import dataclass
 
 REQUIRED_FIELDS = ["move_in_date", "price", "beds", "baths", "location", "amenities"]
-OPTIONAL_FIELDS = ["rental_urgency", "boston_rental_experience"]
+OPTIONAL_FIELDS = ["boston_rental_experience"]  # rental_urgency removed
 
 
 @dataclass
@@ -27,16 +27,13 @@ Before asking anything:
 Ask 2-3 questions about missing required fields only:
 - Bedrooms + bathrooms together
 - Price + location together  
-- Move-in date + amenities together
-
-For amenities, suggest: in-unit laundry, central air, parking, gym, dishwasher, balcony, pet-friendly.""",
+- Move-in date + amenities together""",
     ),
     "OPTIONAL_QUESTIONS": PhaseConfig(
         name="OPTIONAL_QUESTIONS",
         instructions="""All required info is complete! You can ask 1-2 optional questions to gather extra helpful info: {missing_optional}
 
 Optional questions:
-- rental_urgency: "How quickly are you looking to move? Are you hoping to find something within the next few weeks, or do you have more flexibility with timing?"
 - boston_rental_experience: "Do you mind if I ask - have you rented an apartment in Boston before, or is this your first rental experience here? I can give you a brief overview of the process if helpful."
 
 Ask naturally, don't force it. If conversation doesn't flow naturally, skip to asking about tour availability.""",

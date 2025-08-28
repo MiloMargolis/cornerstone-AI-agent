@@ -24,6 +24,19 @@ class LeadProcessor:
         self.delay_detection_service = delay_detection_service
         self.agent_phone = os.getenv("AGENT_PHONE_NUMBER")
 
+    def _create_virtual_lead(self, lead: Lead, extracted_info: dict) -> Lead:
+        """Create a virtual lead state that includes newly extracted information"""
+        # Create a copy of the lead with extracted info applied
+        virtual_data = lead.to_dict()
+        
+        # Apply extracted info to virtual data
+        for field, value in extracted_info.items():
+            if value and str(value).strip():
+                virtual_data[field] = value
+        
+        # Create new Lead instance from virtual data
+        return Lead.from_dict(virtual_data)
+
     async def process_lead_message(self, lead_phone: str, message: str) -> str:
         """Process an incoming message from a lead"""
         try:
@@ -41,18 +54,20 @@ class LeadProcessor:
             # Extract any new information from the message
             extracted_info = await self.ai_service.extract_lead_info(message, lead)
 
-            # Update lead with extracted information
+            # Create virtual lead state that includes extracted info
             if extracted_info:
                 print(f"[DEBUG] Extracted info: {extracted_info}")
+                # Create virtual lead with extracted info applied
+                virtual_lead = self._create_virtual_lead(lead, extracted_info)
+                
+                # Update database with extracted information
                 updated_lead = await self.lead_repository.update(
                     lead_phone, extracted_info
                 )
                 if updated_lead:
                     lead = updated_lead
-                    # Refresh lead from database to ensure we have the most current data
-                    refreshed_lead = await self.lead_repository.get_by_phone(lead_phone)
-                    if refreshed_lead:
-                        lead = refreshed_lead
+                    # Use virtual lead for all subsequent operations to ensure context accuracy
+                    lead = virtual_lead
                     field_values = {
                         field: getattr(lead, field, "EMPTY")
                         for field in [
@@ -76,27 +91,28 @@ class LeadProcessor:
             else:
                 print(f"[DEBUG] No information extracted from message: '{message}'")
 
-            # Update message history
+            # Update message history BEFORE AI response generation to ensure context accuracy
             await self.lead_repository.add_message_to_history(
                 lead_phone, message, "lead"
             )
 
             # Check for delay requests
-            delay_info = await self.delay_detection_service.detect_delay_request(
-                message
-            )
-            if delay_info:
-                # Pause follow-ups until the requested time
-                delay_until = await self.delay_detection_service.calculate_delay_until(
-                    delay_info
-                )
-                await self.lead_repository.pause_follow_up_until(
-                    lead_phone, delay_until
-                )
-                ai_response = await self.ai_service.generate_delay_response(delay_info)
+            # COMMENTED OUT: Delay detector temporarily disabled
+            # delay_info = await self.delay_detection_service.detect_delay_request(
+            #     message
+            # )
+            # if delay_info:
+            #     # Pause follow-ups until the requested time
+            #     delay_until = await self.delay_detection_service.calculate_delay_until(
+            #         delay_info
+            #     )
+            #     await self.lead_repository.pause_follow_up_until(
+            #         lead_phone, delay_until
+            #     )
+            #     ai_response = await self.ai_service.generate_delay_response(delay_info)
 
             # Check if conversation is already complete (tour_ready = True)
-            elif lead.tour_ready:
+            if lead.tour_ready:
                 # Conversation is complete - stay completely silent
                 print(
                     f"Lead {lead_phone} is tour_ready - staying silent (no response sent)"
@@ -104,7 +120,7 @@ class LeadProcessor:
                 return "SILENT_TOUR_READY"  # Return early, no SMS sent
 
             # Check if tour availability was just provided - trigger manager response
-            elif (
+            if (
                 extracted_info
                 and extracted_info.get("tour_availability")
                 and not lead.tour_availability
@@ -147,8 +163,12 @@ class LeadProcessor:
                     f"Lead {lead_phone} completed qualification - marked as tour_ready"
                 )
 
-            else:
+            elif (
+                not lead.tour_ready
+                and not (extracted_info and extracted_info.get("tour_availability") and not lead.tour_availability)
+            ):
                 # Determine what fields are still missing and conversation phase
+                # Use the virtual lead state for accurate missing field calculation
                 missing_fields = await self.lead_repository.get_missing_fields(lead)
                 missing_optional = (
                     await self.lead_repository.get_missing_optional_fields(lead)
@@ -163,9 +183,9 @@ class LeadProcessor:
                 }
                 print(f"[DEBUG] Missing fields analysis: {missing_fields_analysis}")
 
-                # Generate AI response based on phase
+                # Generate AI response based on phase using virtual lead state
                 ai_response = await self.ai_service.generate_response(
-                    lead,
+                    lead,  # Now includes extracted info via virtual lead
                     message,
                     missing_fields,
                     needs_tour_availability,

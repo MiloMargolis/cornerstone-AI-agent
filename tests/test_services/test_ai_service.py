@@ -40,7 +40,7 @@ class TestOpenAIService:
             "baths": "1",
             "location": "Boston",
             "amenities": "Parking",
-            "rental_urgency": "High",
+            # "rental_urgency": "High",  # REMOVED
             "boston_rental_experience": "First time"
         }
         
@@ -56,7 +56,7 @@ class TestOpenAIService:
         
         # Check that optional fields are present
         assert "OPTIONAL FIELDS:" in status
-        assert "rental_urgency: ✓ HAS DATA" in status
+        # assert "rental_urgency: ✓ HAS DATA" in status  # REMOVED
         assert "boston_rental_experience: ✓ HAS DATA" in status
     
     def test_get_database_status_missing_fields(self):
@@ -68,7 +68,7 @@ class TestOpenAIService:
             "baths": "",
             "location": "Boston",
             "amenities": "",
-            "rental_urgency": "",
+            # "rental_urgency": "",  # REMOVED
             "boston_rental_experience": "First time"
         }
         
@@ -85,7 +85,7 @@ class TestOpenAIService:
         assert "location: ✓ HAS DATA" in status
         
         # Check that optional fields are marked appropriately
-        assert "rental_urgency: ○ OPTIONAL" in status
+        # assert "rental_urgency: ○ OPTIONAL" in status  # REMOVED
         assert "boston_rental_experience: ✓ HAS DATA" in status
     
     def test_get_chat_history_with_history(self):
@@ -156,7 +156,7 @@ class TestOpenAIService:
     def test_get_phase_instructions_optional_questions_phase(self):
         """Test getting phase instructions for optional questions phase"""
         missing_fields = []
-        missing_optional = ["rental_urgency", "boston_rental_experience"]
+        missing_optional = ["boston_rental_experience"]  # rental_urgency removed
         
         phase, instructions = self.ai_service._get_phase_instructions(
             needs_tour_availability=False,
@@ -165,7 +165,7 @@ class TestOpenAIService:
         )
         
         assert "OPTIONAL_QUESTIONS" in phase
-        assert "rental_urgency" in instructions
+        # assert "rental_urgency" in instructions  # REMOVED
         assert "boston_rental_experience" in instructions
     
     def test_get_phase_instructions_complete_phase(self):

@@ -161,7 +161,7 @@ class Lead:
     next_follow_up_time: Optional[str] = None
     follow_up_paused_until: Optional[str] = None
     follow_up_stage: str = "scheduled"
-    rental_urgency: str = ""
+    # rental_urgency: str = ""  # REMOVED
     boston_rental_experience: str = ""
 ```
 
