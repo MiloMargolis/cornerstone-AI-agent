@@ -63,8 +63,18 @@ class OpenAIService(IAIService):
         needs_tour_availability: bool,
         missing_fields: List[str],
         missing_optional: Optional[List[str]],
+        extracted_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
-        """Determine the current phase and instructions based on the lead's data"""
+        """Determine the current phase and instructions based on the lead's data and what was just extracted"""
+        
+        # If we have extracted info, filter out fields that were just provided
+        if extracted_info:
+            # Remove fields that were just extracted from missing fields lists
+            extracted_fields = [k for k, v in extracted_info.items() if v and str(v).strip()]
+            missing_fields = [field for field in missing_fields if field not in extracted_fields]
+            if missing_optional:
+                missing_optional = [field for field in missing_optional if field not in extracted_fields]
+        
         if needs_tour_availability:
             phase = PHASE_CONFIGS["TOUR_SCHEDULING"].name
             phase_instructions = PHASE_CONFIGS["TOUR_SCHEDULING"].instructions
@@ -144,6 +154,7 @@ class OpenAIService(IAIService):
         missing_fields: List[str],
         needs_tour_availability: bool = False,
         missing_optional: Optional[List[str]] = None,
+        extracted_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate AI response based on lead state"""
         try:
@@ -162,7 +173,7 @@ class OpenAIService(IAIService):
 
             # Get phase instructions
             phase, phase_instructions = self._get_phase_instructions(
-                needs_tour_availability, missing_fields, missing_optional
+                needs_tour_availability, missing_fields, missing_optional, extracted_info
             )
 
             # Build the prompt

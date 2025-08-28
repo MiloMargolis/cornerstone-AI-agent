@@ -95,6 +95,7 @@ class IAIService(ABC):
         missing_fields: List[str],
         needs_tour_availability: bool = False,
         missing_optional: Optional[List[str]] = None,
+        extracted_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate AI response based on lead state"""
         pass

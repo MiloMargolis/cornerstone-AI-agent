@@ -51,6 +51,10 @@ class LeadProcessor:
                 )
                 if updated_lead:
                     lead = updated_lead
+                    # Refresh lead from database to ensure we have the most current data
+                    refreshed_lead = await self.lead_repository.get_by_phone(lead_phone)
+                    if refreshed_lead:
+                        lead = refreshed_lead
                     field_values = {
                         field: getattr(lead, field, "EMPTY")
                         for field in [
@@ -168,6 +172,7 @@ class LeadProcessor:
                     missing_fields,
                     needs_tour_availability,
                     missing_optional,
+                    extracted_info,
                 )
 
                 # Schedule first follow-up if this is a new incomplete lead
