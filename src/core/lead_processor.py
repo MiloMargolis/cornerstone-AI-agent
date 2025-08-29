@@ -97,19 +97,17 @@ class LeadProcessor:
             )
 
             # Check for delay requests
-            # COMMENTED OUT: Delay detector temporarily disabled
-            # delay_info = await self.delay_detection_service.detect_delay_request(
-            #     message
-            # )
-            # if delay_info:
-            #     # Pause follow-ups until the requested time
-            #     delay_until = await self.delay_detection_service.calculate_delay_until(
-            #         delay_info
-            #     )
-            #     await self.lead_repository.pause_follow_up_until(
-            #         lead_phone, delay_until
-            #     )
-            #     ai_response = await self.ai_service.generate_delay_response(delay_info)
+            message_context = {}
+            delay_info = await self.delay_detection_service.detect_delay_request(message)
+            if delay_info:
+                # Pause follow-ups until the requested time
+                delay_until = await self.delay_detection_service.calculate_delay_until(delay_info)
+                await self.lead_repository.pause_follow_up_until(lead_phone, delay_until)
+                message_context = {
+                    "delay_detected": True,
+                    "delay_duration": delay_info.get("delay_days", "later"),
+                    "delay_type": delay_info.get("delay_type", "general")
+                }
 
             # Check if conversation is already complete (tour_ready = True)
             if lead.tour_ready:
@@ -132,27 +130,7 @@ class LeadProcessor:
                 await self.lead_repository.set_tour_ready(lead_phone)
 
                 # Send notification to agent
-                if self.agent_phone:
-                    lead_name = lead.name or "Lead"
-                    agent_message = f"{lead_name} with phone number {lead_phone} is ready for a tour"
-
-                    agent_sms_success = (
-                        await self.messaging_service.send_agent_notification(
-                            self.agent_phone, agent_message
-                        )
-                    )
-                    if agent_sms_success:
-                        print(
-                            f"Agent notification sent to {self.agent_phone}: {agent_message}"
-                        )
-                    else:
-                        print(
-                            f"Failed to send agent notification to {self.agent_phone}"
-                        )
-                else:
-                    print(
-                        "No AGENT_PHONE_NUMBER configured - skipping agent notification"
-                    )
+                await self._send_agent_notification(lead_phone, lead)
 
                 ai_response = (
                     "Perfect! I have all the information I need. "
@@ -183,7 +161,7 @@ class LeadProcessor:
                 }
                 print(f"[DEBUG] Missing fields analysis: {missing_fields_analysis}")
 
-                # Generate AI response based on phase using virtual lead state
+                # Generate AI response using conversation controller
                 ai_response = await self.ai_service.generate_response(
                     lead,  # Now includes extracted info via virtual lead
                     message,
@@ -191,7 +169,17 @@ class LeadProcessor:
                     needs_tour_availability,
                     missing_optional,
                     extracted_info,
+                    message_context,
                 )
+
+                # Check if conversation controller determined lead is ready for agent handoff
+                if self._is_agent_handoff_response(ai_response):
+                    # Set tour_ready to true
+                    print(f"Lead {lead_phone} ready for agent handoff - marking as tour_ready")
+                    await self.lead_repository.set_tour_ready(lead_phone)
+                    
+                    # Send notification to agent
+                    await self._send_agent_notification(lead_phone, lead)
 
                 # Schedule first follow-up if this is a new incomplete lead
                 if (
@@ -233,3 +221,40 @@ class LeadProcessor:
                 return fallback_message
             except:
                 return "Error processing message"
+
+    async def _send_agent_notification(self, lead_phone: str, lead: Lead):
+        """Send notification to agent that lead is ready for tour"""
+        if self.agent_phone:
+            lead_name = lead.name or "Lead"
+            agent_message = f"{lead_name} with phone number {lead_phone} is ready for a tour"
+
+            agent_sms_success = (
+                await self.messaging_service.send_agent_notification(
+                    self.agent_phone, agent_message
+                )
+            )
+            if agent_sms_success:
+                print(
+                    f"Agent notification sent to {self.agent_phone}: {agent_message}"
+                )
+            else:
+                print(
+                    f"Failed to send agent notification to {self.agent_phone}"
+                )
+        else:
+            print(
+                "No AGENT_PHONE_NUMBER configured - skipping agent notification"
+            )
+
+    def _is_agent_handoff_response(self, ai_response: str) -> bool:
+        """Check if AI response indicates agent handoff"""
+        handoff_indicators = [
+            "human agent will contact",
+            "teammate will contact",
+            "agent will reach out",
+            "hand off your details",
+            "will hand off your details"
+        ]
+        
+        response_lower = ai_response.lower()
+        return any(indicator in response_lower for indicator in handoff_indicators)

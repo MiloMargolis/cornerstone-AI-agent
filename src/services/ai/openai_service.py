@@ -196,9 +196,24 @@ class OpenAIService:
         needs_tour_availability: bool = False,
         missing_optional: Optional[List[str]] = None,
         extracted_info: Optional[Dict[str, Any]] = None,
+        conversation_context: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Generate AI response based on lead state"""
+        """Generate AI response based on lead state using conversation controller"""
         try:
+            # Import here to avoid circular imports
+            from core.conversation_controller import ConversationController
+            
+            # Create conversation controller
+            controller = ConversationController()
+            
+            # Determine conversation action and context
+            conv_context = controller.determine_conversation_action(
+                lead, extracted_info or {}, message, conversation_context
+            )
+            
+            print(f"[DEBUG] Conversation action: {conv_context.action}")
+            print(f"[DEBUG] Prompt template: {conv_context.prompt_template}")
+            
             # Create virtual lead state that includes extracted info
             if extracted_info:
                 virtual_lead = self._create_virtual_lead(lead, extracted_info)
@@ -208,34 +223,22 @@ class OpenAIService:
             # Use virtual lead for all context generation
             lead_data = virtual_lead.to_dict()
 
-            print(f"[DEBUG] Lead data at response generation: {lead_data}")
-            print(f"[DEBUG] Missing fields: {missing_fields}")
-            print(f"[DEBUG] Missing optional: {missing_optional}")
-
-            # Get database status with indication of newly extracted fields
-            database_status = self._get_database_status(lead_data, extracted_info)
-            print(f"[DEBUG] Database status: {database_status}")
-
             # Get chat history
             chat_history = self._get_chat_history(lead_data)
 
-            # Get phase instructions using virtual lead state
-            phase, phase_instructions = self._get_phase_instructions(virtual_lead, extracted_info)
-
-            # Build the prompt
+            # Build the context for the specific prompt template
             context = {
-                "database_status": database_status,
+                **conv_context.context_data,
                 "chat_history": chat_history,
-                "phase": phase,
-                "phase_instructions": phase_instructions,
                 "incoming_message": message,
             }
 
+            # Render the specific prompt template
             system_prompt = self.prompt_loader.render(
-                "qualification_system.tmpl", context
+                conv_context.prompt_template, context
             )
 
-            print(f"[DEBUG] Qualification prompt: {system_prompt}")
+            print(f"[DEBUG] {conv_context.action.value} prompt: {system_prompt}")
 
             response = self.client.chat.completions.create(
                 model=self.model,

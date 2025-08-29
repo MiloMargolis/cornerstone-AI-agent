@@ -1,12 +1,25 @@
-# CornerStone AI Agent
+# CornerStone AI SMS Assistant
 
 A sophisticated AI-powered SMS follow-up assistant for real estate lead qualification and management, built with AWS Lambda and modern architectural patterns.
 
-## 🏗️ Architecture Overview
+## 🎯 Overview
+
+CornerStone AI SMS Assistant is a serverless application that automates real estate lead qualification through natural SMS conversations. It uses OpenAI's GPT-4 to intelligently extract lead information, manage follow-up sequences, and coordinate with human agents when leads are ready for property tours.
+
+### Key Features
+- **Intelligent Lead Qualification**: AI extracts and tracks lead preferences (bedrooms, bathrooms, price, location, move-in date, amenities)
+- **Natural SMS Conversations**: Human-like responses that adapt to conversation context
+- **Automated Follow-ups**: Scheduled follow-up messages with intelligent timing
+- **Tour Readiness Detection**: Automatically notifies agents when leads are ready for tours
+- **Multi-Phase Qualification**: Progressive information gathering with optional field collection
+- **Delay Request Handling**: Respects lead requests to pause follow-ups
+- **Manual Outreach**: API endpoint for initiating conversations with new leads
+
+## 🏗️ Architecture
 
 This application follows **Clean Architecture** principles with clear separation of concerns, event-driven design, and enterprise-level patterns for scalability and maintainability.
 
-### **Core Technologies**
+### Core Technologies
 - **AWS Lambda** - Serverless compute platform
 - **Python 3.11** - Primary programming language
 - **AWS SAM** - Infrastructure as Code deployment
@@ -15,12 +28,12 @@ This application follows **Clean Architecture** principles with clear separation
 - **Supabase** - PostgreSQL database with real-time features
 - **Google Sheets API** - Data export and reporting
 
-### **Architectural Patterns**
+### Architectural Patterns
 - **Event-Driven Architecture** - Asynchronous message processing
 - **Service Layer Pattern** - Business logic abstraction
 - **Repository Pattern** - Data access abstraction
-- **Simplified Architecture** - Direct service instantiation for reliability
 - **Domain-Driven Design** - Rich domain models with business logic
+- **Interface Segregation** - Clean service contracts
 
 ## 📁 Project Structure
 
@@ -32,7 +45,6 @@ src/
 │   └── outreach_handler.py     # Manual outreach API
 ├── core/                  # 🧠 Business Logic
 │   ├── event_processor.py      # Event processing logic
-│   ├── event_processor.py      # Event orchestration
 │   └── lead_processor.py       # Core lead qualification logic
 ├── models/                # 📊 Domain Models
 │   ├── lead.py                 # Lead domain model
@@ -61,7 +73,7 @@ src/
 
 ## 🚀 Lambda Functions
 
-### **WebhookHandlerFunction**
+### WebhookHandlerFunction
 - **Purpose**: Processes incoming Telnyx SMS webhooks
 - **Trigger**: API Gateway POST `/webhook`
 - **Handler**: `handlers.webhook_handler.lambda_handler`
@@ -69,28 +81,29 @@ src/
   - Real-time message processing
   - Lead qualification and information extraction
   - Automated responses based on lead state
+  - Agent notification when tour-ready
 
-### **FollowUpHandlerFunction**
+### FollowUpHandlerFunction
 - **Purpose**: Processes scheduled follow-up messages
 - **Trigger**: CloudWatch Events (every 30 minutes)
 - **Handler**: `handlers.follow_up_handler.lambda_handler`
 - **Features**:
   - Batch processing of leads needing follow-up
   - Intelligent scheduling based on lead state
-  - Tour availability coordination
+  - Progressive follow-up messaging
 
-### **OutreachHandlerFunction**
+### OutreachHandlerFunction
 - **Purpose**: Manual outreach and lead management
 - **Trigger**: API Gateway POST `/outreach`
 - **Handler**: `handlers.outreach_handler.lambda_handler`
 - **Features**:
   - Manual lead outreach capabilities
-  - Bulk messaging operations
-  - Lead status management
+  - Lead creation and initial messaging
+  - Phone number validation and normalization
 
 ## 🧠 Core Business Logic
 
-### **Lead Processing Workflow**
+### Lead Processing Workflow
 1. **Message Reception** - Webhook receives SMS from Telnyx
 2. **Lead Identification** - Find or create lead record
 3. **Information Extraction** - AI extracts relevant data from message
@@ -99,23 +112,34 @@ src/
 6. **State Management** - Update lead status and schedule follow-ups
 7. **Agent Notification** - Notify human agent when tour-ready
 
-### **Lead Qualification Phases**
+### Lead Qualification Phases
 - **QUALIFICATION** - Collect required fields (move-in date, price, beds, baths, location, amenities)
-- **OPTIONAL_QUESTIONS** - Gather additional context (urgency, experience)
+- **OPTIONAL_QUESTIONS** - Gather additional context (Boston rental experience)
 - **TOUR_SCHEDULING** - Coordinate tour availability
 - **COMPLETE** - Lead is fully qualified and tour-ready
 
+### Required Fields
+- `move_in_date` - When the lead wants to move in
+- `price` - Budget/price range
+- `beds` - Number of bedrooms needed
+- `baths` - Number of bathrooms needed
+- `location` - Preferred neighborhoods/areas
+- `amenities` - Desired amenities (parking, laundry, etc.)
+
+### Optional Fields
+- `boston_rental_experience` - Previous rental experience in Boston
+
 ## 🔌 Service Layer
 
-### **AI Service** (`IAIService`)
+### AI Service (`OpenAIService`)
 - **Purpose**: OpenAI integration for lead qualification and response generation
 - **Features**:
   - Information extraction from natural language
   - Contextual response generation
   - Phase-based conversation management
-  - Delay request processing
+  - Virtual lead state management
 
-### **Messaging Service** (`IMessagingService`)
+### Messaging Service (`TelnyxService`)
 - **Purpose**: SMS communication via Telnyx
 - **Features**:
   - Async SMS sending
@@ -123,7 +147,7 @@ src/
   - Mock service for testing
   - Error handling and retry logic
 
-### **Database Service** (`ILeadRepository`)
+### Database Service (`LeadRepository`)
 - **Purpose**: Data persistence and retrieval
 - **Features**:
   - Lead CRUD operations
@@ -132,7 +156,7 @@ src/
   - Tour readiness tracking
   - Returns domain models, not raw data
 
-### **Delay Detection Service** (`IDelayDetectionService`)
+### Delay Detection Service (`DelayDetectionService`)
 - **Purpose**: Process delay requests from leads
 - **Features**:
   - AI-powered delay detection
@@ -141,7 +165,7 @@ src/
 
 ## 📊 Domain Models
 
-### **Lead Model**
+### Lead Model
 ```python
 @dataclass
 class Lead:
@@ -161,11 +185,10 @@ class Lead:
     next_follow_up_time: Optional[str] = None
     follow_up_paused_until: Optional[str] = None
     follow_up_stage: str = "scheduled"
-    # rental_urgency: str = ""  # REMOVED
     boston_rental_experience: str = ""
 ```
 
-### **Webhook Event Model**
+### Webhook Event Model
 ```python
 @dataclass
 class WebhookEvent:
@@ -179,7 +202,7 @@ class WebhookEvent:
 
 ## 🛡️ Error Handling
 
-### **Centralized Error Handler**
+### Centralized Error Handler
 - **Validation Errors** - Invalid input data
 - **Internal Errors** - Application logic failures
 - **Authentication Errors** - API key issues
@@ -187,7 +210,7 @@ class WebhookEvent:
 - **Rate Limit Errors** - API throttling
 - **Structured Responses** - Consistent error format
 
-### **Error Response Format**
+### Error Response Format
 ```json
 {
   "statusCode": 400,
@@ -201,7 +224,7 @@ class WebhookEvent:
 
 ## 🔧 Configuration
 
-### **Environment Variables**
+### Environment Variables
 ```bash
 # API Keys
 TELNYX_API_KEY=your_telnyx_key
@@ -220,7 +243,7 @@ OPENAI_MODEL=gpt-4o-mini
 MOCK_TELNX=0  # Set to 1 for mock SMS service
 ```
 
-### **Business Rules** (`config/follow_up_config.py`)
+### Business Rules (`config/follow_up_config.py`)
 - Follow-up scheduling intervals
 - Delay keyword detection
 - Tour readiness criteria
@@ -228,41 +251,45 @@ MOCK_TELNX=0  # Set to 1 for mock SMS service
 
 ## 🧪 Testing
 
-### **Service Testing**
+### Service Testing
 - Mock services for external dependencies
 - Interface-based testing
 - Async/await support
 - Comprehensive error scenarios
 
-### **Integration Testing**
+### Integration Testing
 - End-to-end webhook processing
 - Database operations
 - SMS sending workflows
 - AI response generation
 
-### **Test Structure**
+### Test Structure
 ```
 tests/
-├── test_app.py                    # Main application tests
-├── test_follow_up_handler.py      # Follow-up handler tests
-├── test_outreach_handler.py       # Outreach handler tests
-├── test_openai_integration.py     # AI service tests
-└── test_utils/                    # Utility tests
-    ├── test_delay_detector.py
-    ├── test_openai_client.py
-    ├── test_supabase_client.py
-    └── test_telnyx_client.py
+├── test_core/
+│   ├── test_event_processor.py
+│   └── test_lead_processor.py
+├── test_handlers/
+│   ├── test_webhook_handler.py
+│   ├── test_follow_up_handler.py
+│   └── test_outreach_handler.py
+├── test_services/
+│   ├── test_ai_service.py
+│   └── test_lead_repository.py
+└── test_models/
+    ├── test_lead.py
+    └── test_webhook.py
 ```
 
 ## 🚀 Deployment
 
-### **Prerequisites**
+### Prerequisites
 - AWS CLI configured
 - AWS SAM CLI installed
 - Python 3.11+
 - Required API keys and credentials
 
-### **Deployment Steps**
+### Deployment Steps
 ```bash
 # 1. Install dependencies
 pip install -r src/requirements.txt
@@ -277,7 +304,7 @@ sam deploy --guided
 # Use the WebhookUrl output from deployment
 ```
 
-### **SAM Template Features**
+### SAM Template Features
 - **Parameters**: Secure credential management
 - **Globals**: Consistent function configuration
 - **Resources**: Three Lambda functions with proper triggers
@@ -285,19 +312,19 @@ sam deploy --guided
 
 ## 📈 Monitoring & Observability
 
-### **CloudWatch Metrics**
+### CloudWatch Metrics
 - Function invocation counts
 - Error rates and durations
 - Memory utilization
 - Concurrent executions
 
-### **Logging**
+### Logging
 - Structured JSON logging
 - Request/response tracking
 - Error context preservation
 - Performance metrics
 
-### **Alerts**
+### Alerts
 - High error rates
 - Function timeouts
 - API quota limits
@@ -305,13 +332,13 @@ sam deploy --guided
 
 ## 🔒 Security
 
-### **API Security**
+### API Security
 - Environment variable encryption
 - IAM role-based access
 - API Gateway authentication
 - Request validation
 
-### **Data Protection**
+### Data Protection
 - PII handling best practices
 - Database encryption at rest
 - Secure credential management
@@ -319,7 +346,7 @@ sam deploy --guided
 
 ## 📚 API Reference
 
-### **Webhook Endpoint**
+### Webhook Endpoint
 ```
 POST /webhook
 Content-Type: application/json
@@ -336,46 +363,14 @@ Content-Type: application/json
 }
 ```
 
-### **Outreach Endpoint**
+### Outreach Endpoint
 ```
 POST /outreach
 Content-Type: application/json
 
 {
-  "phone": "+1234567890",
-  "message": "Custom outreach message"
+  "phone_number": "+1234567890",
+  "name": "John Doe"
 }
 ```
-
-## 🤝 Contributing
-
-### **Development Setup**
-1. Clone the repository
-2. Install dependencies: `pip install -r src/requirements.txt`
-3. Set up environment variables
-4. Run tests: `python -m pytest tests/`
-5. Deploy locally: `sam local start-api`
-
-### **Code Standards**
-- Type hints throughout
-- Async/await for I/O operations
-- Comprehensive error handling
-- Unit test coverage
-- Documentation for public APIs
-
-## 📄 License
-
-This project is proprietary software. All rights reserved.
-
-## 🆘 Support
-
-For technical support or questions about the architecture:
-- Review the service interfaces in `src/services/interfaces.py`
-- Check the domain models in `src/models/`
-- Examine the business logic in `src/core/`
-- Run the test suite for examples
-
----
-
-**Built with modern architectural patterns for scalability, maintainability, and enterprise-grade reliability.** 🚀
 
