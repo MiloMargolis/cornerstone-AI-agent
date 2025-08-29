@@ -72,7 +72,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "to_numbers": webhook_event.payload.to_numbers,
                 "text": webhook_event.payload.text,
             }
-            print(f"[DEBUG] Webhook event data: {json.dumps(webhook_event_data, indent=2)}")
         except ValueError as e:
             print(f"Invalid webhook data: {e}")
             return error_handler.handle_validation_error(str(e))

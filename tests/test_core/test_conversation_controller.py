@@ -221,8 +221,10 @@ class TestConversationController:
         context = self.controller._build_handoff_context(lead)
         
         assert context.action == ConversationAction.READY_FOR_AGENT
-        assert context.prompt_template == "agent_handoff.tmpl"
-        assert "complete_profile" in context.context_data
+        assert context.prompt_template is None  # No prompt template needed for direct response
+        assert "direct_response" in context.context_data
+        assert context.context_data["direct_response"] == "Perfect! I'm ready to send your information to my human agent who will help you schedule tours. They'll be in touch soon!"
+        assert context.should_mark_tour_ready is True
 
     def test_determine_conversation_action_new_lead(self):
         """Test conversation action determination for new leads"""

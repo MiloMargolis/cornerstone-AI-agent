@@ -162,7 +162,7 @@ class LeadProcessor:
                 print(f"[DEBUG] Missing fields analysis: {missing_fields_analysis}")
 
                 # Generate AI response using conversation controller
-                ai_response = await self.ai_service.generate_response(
+                ai_response, should_mark_tour_ready = await self.ai_service.generate_response(
                     lead,  # Now includes extracted info via virtual lead
                     message,
                     missing_fields,
@@ -173,13 +173,15 @@ class LeadProcessor:
                 )
 
                 # Check if conversation controller determined lead is ready for agent handoff
-                if self._is_agent_handoff_response(ai_response):
+                if should_mark_tour_ready:
                     # Set tour_ready to true
-                    print(f"Lead {lead_phone} ready for agent handoff - marking as tour_ready")
+                    print(f"[DEBUG] Lead {lead_phone} ready for agent handoff - marking as tour_ready")
                     await self.lead_repository.set_tour_ready(lead_phone)
                     
-                    # Send notification to agent
+                    # Send notification to agent IMMEDIATELY (before sending response to user)
+                    print(f"[DEBUG] Sending agent notification IMMEDIATELY for {lead_phone}")
                     await self._send_agent_notification(lead_phone, lead)
+                    print(f"[DEBUG] Agent notification sent for {lead_phone}")
 
                 # Schedule first follow-up if this is a new incomplete lead
                 if (
@@ -197,6 +199,7 @@ class LeadProcessor:
                     )
 
             # Send response back to the lead
+            print(f"[DEBUG] Sending AI response to user {lead_phone}: {ai_response}")
             success = await self.messaging_service.send_sms(lead_phone, ai_response)
 
             if success:
@@ -246,15 +249,4 @@ class LeadProcessor:
                 "No AGENT_PHONE_NUMBER configured - skipping agent notification"
             )
 
-    def _is_agent_handoff_response(self, ai_response: str) -> bool:
-        """Check if AI response indicates agent handoff"""
-        handoff_indicators = [
-            "human agent will contact",
-            "teammate will contact",
-            "agent will reach out",
-            "hand off your details",
-            "will hand off your details"
-        ]
-        
-        response_lower = ai_response.lower()
-        return any(indicator in response_lower for indicator in handoff_indicators)
+

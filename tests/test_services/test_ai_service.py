@@ -336,6 +336,40 @@ class TestOpenAIService:
         
         # Should return fallback message when OpenAI returns None content
         assert result == "I'm having trouble processing your message. Please try again."
+
+    @pytest.mark.asyncio
+    async def test_generate_response_direct_response(self):
+        """Test response generation with direct response (no prompt template)"""
+        lead = Lead(phone="+1234567890")
+        message = "Yes"
+        missing_fields = []
+        needs_tour_availability = False
+        missing_optional = []
+        
+        # Mock the conversation controller to return a direct response context
+        with patch('services.ai.openai_service.ConversationController') as mock_controller:
+            mock_conv_context = Mock()
+            mock_conv_context.action.value = "ready_for_agent"
+            mock_conv_context.prompt_template = None  # Direct response
+            mock_conv_context.context_data = {
+                "direct_response": "Perfect! I'm ready to send your information to my human agent who will help you schedule tours. They'll be in touch soon!"
+            }
+            mock_conv_context.should_mark_tour_ready = True
+            
+            mock_controller_instance = Mock()
+            mock_controller_instance.determine_conversation_action.return_value = mock_conv_context
+            mock_controller.return_value = mock_controller_instance
+            
+            result, should_mark_tour_ready = await self.ai_service.generate_response(
+                lead, message, missing_fields, needs_tour_availability, missing_optional
+            )
+            
+            # Should return the direct response without calling OpenAI
+            assert result == "Perfect! I'm ready to send your information to my human agent who will help you schedule tours. They'll be in touch soon!"
+            assert should_mark_tour_ready is True
+            
+            # Verify OpenAI was NOT called since we used direct response
+            self.ai_service.client.chat.completions.create.assert_not_called()
     
     @pytest.mark.asyncio
     async def test_generate_delay_response_success(self):

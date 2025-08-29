@@ -197,7 +197,7 @@ class OpenAIService:
         missing_optional: Optional[List[str]] = None,
         extracted_info: Optional[Dict[str, Any]] = None,
         conversation_context: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    ) -> tuple[str, bool]:
         """Generate AI response based on lead state using conversation controller"""
         try:
             # Import here to avoid circular imports
@@ -233,12 +233,19 @@ class OpenAIService:
                 "incoming_message": message,
             }
 
+            # Check if this is a direct response (no prompt template needed)
+            if conv_context.prompt_template is None:
+                # Use direct response from context
+                direct_response = conv_context.context_data.get("direct_response", "Thank you for your information!")
+                print(f"[DEBUG] Using direct response: {direct_response}")
+                return direct_response, conv_context.should_mark_tour_ready
+
             # Render the specific prompt template
             system_prompt = self.prompt_loader.render(
                 conv_context.prompt_template, context
             )
 
-            print(f"[DEBUG] {conv_context.action.value} prompt: {system_prompt}")
+            print(f"[DEBUG] {conv_context.action.value} context: {context}")
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -254,11 +261,13 @@ class OpenAIService:
             if result_text is None:
                 raise ValueError("OpenAI returned None content")
 
-            return result_text.strip()
+            # Return response and tour ready flag
+            should_mark_tour_ready = conv_context.should_mark_tour_ready
+            return result_text.strip(), should_mark_tour_ready
 
         except Exception as e:
             print(f"Error generating AI response: {e}")
-            return "I'm having trouble processing your message. Please try again."
+            return "I'm having trouble processing your message. Please try again.", False
 
     async def generate_delay_response(self, delay_info: Dict[str, Any]) -> str:
         """Generate response for delay requests"""

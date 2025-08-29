@@ -27,6 +27,7 @@ class ConversationContext:
     context_data: Dict[str, Any]
     extracted_info: Optional[Dict[str, Any]] = None
     message_context: Optional[Dict[str, Any]] = None
+    should_mark_tour_ready: bool = False
 
 
 @dataclass
@@ -63,6 +64,13 @@ class ConversationController:
         message: str,
         message_context: Optional[Dict[str, Any]] = None
     ) -> ConversationContext:
+        print(f"[DEBUG] Determining conversation action for lead {lead.phone}")
+        print(f"[DEBUG] Lead is_qualified: {lead.is_qualified}")
+        print(f"[DEBUG] Has been summarized: {self._has_been_summarized(lead)}")
+        print(f"[DEBUG] Has completed optional: {self._has_completed_optional_questions(lead)}")
+        print(f"[DEBUG] Extraction has new data: {bool(extracted_info)}")
+        print(f"[DEBUG] Missing required fields: {lead.missing_required_fields}")
+        print(f"[DEBUG] Missing optional fields: {lead.missing_optional_fields}")
         """
         Determine the appropriate conversation action based on lead state and message content
         """
@@ -89,7 +97,10 @@ class ConversationController:
             else:
                 return self._build_continuation_context(lead, extraction_analysis)
         
-        # Handle when no new extraction but lead is qualified
+        elif extraction_analysis.is_unclear:
+            return self._build_clarification_context(extraction_analysis)
+        
+        # Handle qualified leads when no new extraction
         elif lead.is_qualified:
             # Lead is qualified - check conversation phase
             if not self._has_been_summarized(lead):
@@ -98,16 +109,6 @@ class ConversationController:
                 return self._build_optional_context(lead, extraction_analysis)
             else:
                 return self._build_handoff_context(lead)
-        
-        elif extraction_analysis.is_unclear:
-            return self._build_clarification_context(extraction_analysis)
-        
-        # Step 4: Handle qualified leads
-        elif lead.is_qualified:
-            if lead.tour_availability:
-                return self._build_handoff_context(lead)
-            else:
-                return self._build_tour_context(lead, extraction_analysis)
         
         # Step 5: Default to gentle redirect
         else:
@@ -326,14 +327,15 @@ class ConversationController:
 
     def _build_handoff_context(self, lead: Lead) -> ConversationContext:
         """Build context for agent handoff"""
+        print(f"[DEBUG] Building handoff context for lead {lead.phone} - setting should_mark_tour_ready=True")
+        
         return ConversationContext(
             action=ConversationAction.READY_FOR_AGENT,
-            prompt_template=self.prompt_templates[ConversationAction.READY_FOR_AGENT],
+            prompt_template=None,  # No prompt template needed - direct response
             context_data={
-                "complete_profile": self._format_qualification_summary(lead),
-                "next_steps": "I'll have my teammate contact you directly to schedule your tour.",
-                "handoff_reason": "All information collected and tour availability provided"
-            }
+                "direct_response": "Perfect! I'm sending your information to my human agent who will help you schedule tours. They'll be in touch soon!"
+            },
+            should_mark_tour_ready=True
         )
 
     # Helper methods for context building

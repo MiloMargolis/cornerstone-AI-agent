@@ -27,7 +27,7 @@ class TelnyxService:
                 from_=self.from_number, to=to, text=message
             )
 
-            print(f"SMS sent successfully to {to}: {response}")
+            # print(f"SMS sent successfully to {to}: {response}")
             return True
 
         except Exception as e:
