@@ -1,65 +1,142 @@
-# Test configuration and fixtures
-import os
-import sys
+"""
+Shared test fixtures and configuration for the test suite.
+"""
 import pytest
-from unittest.mock import MagicMock, patch
-
-# Add src directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+import os
+from unittest.mock import Mock, AsyncMock
 
 
-@pytest.fixture
-def mock_env_vars():
-    """Fixture to set up environment variables for testing"""
+@pytest.fixture(autouse=True)
+def mock_environment_variables():
+    """Mock environment variables for all tests"""
     env_vars = {
-        "TELNYX_API_KEY": "test_telnyx_key",
-        "TELNYX_PHONE_NUMBER": "+1234567890",
-        "OPENAI_API_KEY": "test_openai_key",
-        "SUPABASE_URL": "https://test.supabase.co",
-        "SUPABASE_KEY": "test_supabase_key",
-        "AGENT_PHONE_NUMBER": "+1987654321",
-        "OPENAI_MODEL": "gpt-4o-mini",
-        "MOCK_TELNX": "1",
+        'OPENAI_API_KEY': 'test-openai-key',
+        'SUPABASE_URL': 'https://test.supabase.co',
+        'SUPABASE_KEY': 'test-supabase-key',
+        'AGENT_PHONE_NUMBER': '+1987654321',
+        'MOCK_TELNX': '1'
     }
-
-    with patch.dict(os.environ, env_vars):
-        yield env_vars
+    
+    with pytest.MonkeyPatch().context() as m:
+        for key, value in env_vars.items():
+            m.setenv(key, value)
+        yield
 
 
 @pytest.fixture
-def sample_lead_data():
-    """Sample lead data for testing"""
-    return {
-        "phone": "+1234567890",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "move_in_date": "2024-01-01",
-        "price": "$2000-2500",
-        "beds": "2",
-        "baths": "1",
-        "location": "Boston",
-        "amenities": "parking, gym",
-        "tour_availability": "",
-        "tour_ready": False,
-        "chat_history": "2024-01-01 10:00 - Lead: Hi, looking for apartments\n",
-        "follow_up_count": 0,
-        "next_follow_up_time": None,
-        "follow_up_paused_until": None,
-        "follow_up_stage": "first",
-        "rental_urgency": "",
-        "boston_rental_experience": "",
-    }
+def mock_lead():
+    """Create a mock lead for testing"""
+    from src.models.lead import Lead
+    
+    return Lead(
+        phone="+1234567890",
+        name="John Doe",
+        email="john@example.com",
+        beds="2",
+        baths="1",
+        move_in_date="2024-02-01",
+        price="2000",
+        location="Boston",
+        amenities="Parking",
+        tour_availability="Tuesday 2pm",
+        tour_ready=False,
+        follow_up_count=1,
+        follow_up_stage="second"
+    )
 
 
 @pytest.fixture
-def sample_webhook_event():
-    """Sample Telnyx webhook event for testing"""
-    return {
-        "body": '{"data": {"event_type": "message.received", "payload": {"from": {"phone_number": "+1234567890"}, "to": [{"phone_number": "+1987654321"}], "text": "Hi, I\'m looking for a 2 bedroom apartment"}}}'
-    }
+def mock_webhook_event():
+    """Create a mock webhook event for testing"""
+    from src.models.webhook import WebhookEvent, MessagePayload, EventType
+    
+    payload = MessagePayload(
+        from_number="+1234567890",
+        to_numbers=["+1987654321"],
+        text="Hello there",
+        message_id="msg-123",
+        timestamp="2024-01-01T10:00:00Z"
+    )
+    
+    return WebhookEvent(
+        event_type=EventType.MESSAGE_RECEIVED,
+        payload=payload,
+        event_id="test-event-123",
+        timestamp="2024-01-01T10:00:00Z"
+    )
 
 
 @pytest.fixture
-def sample_outreach_event():
-    """Sample outreach event for testing"""
-    return {"phone_number": "+1234567890", "name": "Jane Smith"}
+def mock_lead_repository():
+    """Create a mock lead repository for testing"""
+    mock_repo = Mock()
+    
+    # Make async methods return values
+    mock_repo.get_by_phone = AsyncMock()
+    mock_repo.create = AsyncMock()
+    mock_repo.update = AsyncMock()
+    mock_repo.add_message_to_history = AsyncMock()
+    mock_repo.pause_follow_up_until = AsyncMock()
+    mock_repo.set_tour_ready = AsyncMock()
+    mock_repo.get_missing_fields = AsyncMock()
+    mock_repo.get_missing_optional_fields = AsyncMock()
+    mock_repo.needs_tour_availability = AsyncMock()
+    mock_repo.schedule_follow_up = AsyncMock()
+    mock_repo.get_leads_needing_follow_up = AsyncMock()
+    
+    return mock_repo
+
+
+@pytest.fixture
+def mock_messaging_service():
+    """Create a mock messaging service for testing"""
+    mock_service = Mock()
+    
+    # Make async methods return values
+    mock_service.send_sms = AsyncMock()
+    mock_service.send_agent_notification = AsyncMock()
+    
+    return mock_service
+
+
+@pytest.fixture
+def mock_ai_service():
+    """Create a mock AI service for testing"""
+    mock_service = Mock()
+    
+    # Make async methods return values
+    mock_service.extract_lead_info = AsyncMock()
+    mock_service.generate_response = AsyncMock()
+    mock_service.generate_delay_response = AsyncMock()
+    
+    return mock_service
+
+
+@pytest.fixture
+def mock_delay_detection_service():
+    """Create a mock delay detection service for testing"""
+    mock_service = Mock()
+    
+    # Make async methods return values
+    mock_service.detect_delay_request = AsyncMock()
+    mock_service.calculate_delay_until = AsyncMock()
+    
+    return mock_service
+
+
+@pytest.fixture
+def mock_error_handler():
+    """Create a mock error handler for testing"""
+    mock_handler = Mock()
+    
+    mock_handler.handle_validation_error.return_value = {
+        "statusCode": 400,
+        "body": '{"error": "Validation Error"}'
+    }
+    
+    mock_handler.handle_internal_error.return_value = {
+        "statusCode": 500,
+        "body": '{"error": "Internal Error"}'
+    }
+    
+    return mock_handler

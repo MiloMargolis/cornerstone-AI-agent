@@ -1,5 +1,6 @@
 # Development dependencies for testing and linting
 pytest
+pytest-asyncio
 pytest-cov
 pytest-mock
 moto[all]
